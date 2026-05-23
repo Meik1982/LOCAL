@@ -1,1 +1,61 @@
-LOCAL (Lokale Offline Chat Anwendungs-Logik)Ein vollständig lokaler, offline-fähiger KI-Chat-Client (Zero-Dependency), der direkt im Browser läuft. Die gesamte Anwendung besteht aus einer einzigen, hochoptimierten HTML-Datei und greift nativ auf die integrierte Chrome-KI (Gemini Nano) zurück.Kein Server, kein Datenabfluss!✨ Kern-Features100 % Lokal & Offline: Nutzt die native window.LanguageModel-API von Chrome. Prompts verlassen niemals dein Endgerät.Zero-Dependency Architektur: Vanilla JavaScript, CSS und HTML. Keine externen Frameworks (wie React) oder externe Parser-Bibliotheken nötig.Smart Context Compression: Ein Sliding-Window-Algorithmus mit KI-gestützter "Gedächtnis-Archivierung" verhindert Out-of-Memory (OOM) Abstürze bei extrem langen Chatverläufen.Multi-Session Storage: Persistente Speicherung mehrerer Chats direkt im lokalen Browser-Cache (LocalStorage) mit Quota-Schutz.Integrierte Code-Sandbox: Generierter HTML/JS-Code kann mit einem Klick in einem sicheren Iframe-Container ausgeführt und direkt im Chat getestet werden.Sprachsteuerung: Natives Speech-to-Text (Mikrofon) und Text-to-Speech (Vorlesen).Kontext-Injektion: Fähigkeit, lokale Dateien (TXT, MD, CSV) per Drag & Drop einzulesen oder übermittelte Web-URLs als KI-Kontext zu nutzen.Integriertes Debug-Terminal: Eine versteckte Konsole (Hotkey Strg+D) fängt Laufzeitfehler ab und protokolliert Systemereignisse für einfache Fehlerbehebung.🚀 Installation & SystemanforderungenDa diese Technologie aktuell (Stand 2026) in der experimentellen Phase ist, muss die KI-Engine im Chrome-Browser manuell aktiviert werden.Voraussetzungen:Google Chrome (neueste Version).Hardware, die lokale KI-Modelle unterstützt (ausreichend RAM/NPU).Setup (Einmalige Freischaltung in Chrome):Öffne einen neuen Tab und navigiere zu: chrome://flags/#prompt-api-for-gemini-nanoSetze den Wert auf Enabled.Navigiere zu: chrome://flags/#optimization-guide-on-device-modelSetze den Wert auf Enabled BypassPerfRequirement.Klicke unten rechts auf Relaunch, um den Browser komplett neu zu starten.(Optional) Falls die KI beim ersten Start noch lädt, navigiere zu chrome://components, suche nach "Optimization Guide On Device Model" und klicke auf "Nach Updates suchen".Nutzung:Sobald die Flags aktiviert sind, lade dir einfach die chat.html aus diesem Repository herunter und öffne sie mit einem Doppelklick in Chrome. Fertig.⚠️ Architektur-Hinweise & DatenschutzLokale Ausführung: Jegliche Logik, Parsings und KI-Berechnungen passieren exklusiv auf deinem Gerät.Web-Abrufe (Einzige Ausnahme): Wenn du eine URL in den Chat postest (z. B. Fasse https://beispiel.de zusammen), nutzt das Skript den öffentlichen Proxy api.allorigins.win, um CORS-Blockaden zu umgehen und die Seite als Text in den Chat zu laden. Wenn du strikten Datenschutz bei der URL-Analyse benötigst, hoste die HTML-Datei lokal über einen Server oder passe die Proxy-URL im Quellcode an.📜 LizenzDieses Projekt steht unter der MIT-Lizenz.
+LOCAL (Lokale Offline Chat Anwendungs-Logik)
+
+Ein vollständig lokaler, offline-fähiger KI-Chat-Client (Zero-Dependency), der direkt im Browser läuft. Die gesamte Anwendung besteht aus einer einzigen, hochoptimierten HTML-Datei und greift nativ auf die integrierte Chrome-KI (Gemini Nano) zurück.
+
+Kein Server, kein Datenabfluss!
+
+✨ Kern-Features
+
+100 % Lokal & Offline: Nutzt die native window.LanguageModel-API von Chrome. Prompts verlassen niemals dein Endgerät.
+
+Zero-Dependency Architektur: Vanilla JavaScript, CSS und HTML. Keine externen Frameworks (wie React) oder externe Parser-Bibliotheken nötig.
+
+Smart Context Compression: Ein Sliding-Window-Algorithmus mit KI-gestützter "Gedächtnis-Archivierung" verhindert Out-of-Memory (OOM) Abstürze bei extrem langen Chatverläufen.
+
+Multi-Session Storage: Persistente Speicherung mehrerer Chats direkt im lokalen Browser-Cache (LocalStorage) mit Quota-Schutz.
+
+Integrierte Code-Sandbox: Generierter HTML/JS-Code kann mit einem Klick in einem sicheren Iframe-Container ausgeführt und direkt im Chat getestet werden.
+
+Sprachsteuerung: Natives Speech-to-Text (Mikrofon) und Text-to-Speech (Vorlesen).
+
+Kontext-Injektion: Fähigkeit, lokale Dateien (TXT, MD, CSV) per Drag & Drop einzulesen oder übermittelte Web-URLs als KI-Kontext zu nutzen.
+
+Integriertes Debug-Terminal: Eine versteckte Konsole (Hotkey Strg+D) fängt Laufzeitfehler ab und protokolliert Systemereignisse für einfache Fehlerbehebung.
+
+🚀 Installation & Systemanforderungen
+
+Da diese Technologie aktuell (Stand 2026) in der experimentellen Phase ist, muss die KI-Engine im Chrome-Browser manuell aktiviert werden.
+
+Voraussetzungen:
+
+Google Chrome (neueste Version).
+
+Hardware, die lokale KI-Modelle unterstützt (ausreichend RAM/NPU).
+
+Setup (Einmalige Freischaltung in Chrome):
+
+Öffne einen neuen Tab und navigiere zu: chrome://flags/#prompt-api-for-gemini-nano
+
+Setze den Wert auf Enabled.
+
+Navigiere zu: chrome://flags/#optimization-guide-on-device-model
+
+Setze den Wert auf Enabled BypassPerfRequirement.
+
+Klicke unten rechts auf Relaunch, um den Browser komplett neu zu starten.
+
+(Optional) Falls die KI beim ersten Start noch lädt, navigiere zu chrome://components, suche nach "Optimization Guide On Device Model" und klicke auf "Nach Updates suchen".
+
+Nutzung:
+
+Sobald die Flags aktiviert sind, lade dir einfach die chat.html aus diesem Repository herunter und öffne sie mit einem Doppelklick in Chrome. Fertig.
+
+⚠️ Architektur-Hinweise & Datenschutz
+
+Lokale Ausführung: Jegliche Logik, Parsings und KI-Berechnungen passieren exklusiv auf deinem Gerät.
+
+Web-Abrufe (Einzige Ausnahme): Wenn du eine URL in den Chat postest (z. B. Fasse https://beispiel.de zusammen), nutzt das Skript den öffentlichen Proxy api.allorigins.win, um CORS-Blockaden zu umgehen und die Seite als Text in den Chat zu laden. Wenn du strikten Datenschutz bei der URL-Analyse benötigst, hoste die HTML-Datei lokal über einen Server oder passe die Proxy-URL im Quellcode an.
+
+📜 Lizenz
+
+Dieses Projekt steht unter der MIT-Lizenz.
