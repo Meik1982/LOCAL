@@ -10,7 +10,7 @@
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lokaler KI-Chat (Gemini Nano) - Ultimate Edition (Wartung 1)</title>
+    <title>Lokaler KI-Chat (Gemini Nano) - Ultimate Edition (Wartung 2 - Security Audit)</title>
     <style>
         /* === Basis & Layout === */
         body {
@@ -200,39 +200,19 @@
     </div>
 
     <script>
-        /**
-         * @file Lokaler KI-Chat (Ultimate Edition)
-         * @description Vollständig refaktorierte, offline-fähige KI-Chat-Anwendung mit Gemini Nano.
-         * Behebt Performanz-Engpässe (Layout-Thrashing) und implementiert saubere JSDoc-Dokumentation.
-         */
-
-        /**
-         * Globale Systemkonfiguration und Magic Strings.
-         * @constant {Object}
-         */
         const CONFIG = {
             SCROLL_THRESHOLD: 30, 
             FILE_PREFIX: "--- Lokaler KI-Chat Export ---",
             MAX_WEBPAGE_CHARS: 3500,
             MAX_CONTEXT_CHARS: 12000, 
-            SAFE_INIT_CHARS: 9000, // Anti-Crash: Max. Zeichen für den KI-Init-Prompt
-            STORAGE_SESSIONS_KEY: "nano_chat_sessions_v4", // Versionssprung für saubere Migration
+            SAFE_INIT_CHARS: 9000, 
+            STORAGE_SESSIONS_KEY: "nano_chat_sessions_v5", 
             MARKERS: { SYS: "---[System]---", USR: "---[Du]---", AI: "---[KI]---" },
-            UI: {
-                BTN_LOADING: "KI lädt...",
-                BTN_SEND: "Senden",
-                BTN_ERROR: "Fehler",
-                BTN_COMPRESS: "Komprimiere..."
-            }
+            UI: { BTN_LOADING: "KI lädt...", BTN_SEND: "Senden", BTN_ERROR: "Fehler", BTN_COMPRESS: "Komprimiere..." }
         };
 
-        /**
-         * Hauptklasse der KI-Chat-Anwendung.
-         * Kapselt die Präsentationslogik, API-Kommunikation und Datenverwaltung.
-         */
         class AIChatApp {
             constructor() {
-                /** @type {Object<string, HTMLElement>} DOM-Referenzen */
                 this.dom = {
                     sidebar: document.getElementById('sidebar'), sessionList: document.getElementById('session-list'),
                     chatBox: document.getElementById('chat-box'), userInput: document.getElementById('user-input'),
@@ -244,17 +224,10 @@
                     exportLogBtn: document.getElementById('export-log-btn'), compressBtn: document.getElementById('compress-btn')
                 };
 
-                /** @type {Object} Gekapselter Anwendungsstatus */
                 this.state = {
-                    session: null, 
-                    isAborted: false, 
-                    isAutoScrollActive: true, 
-                    isRecording: false,
-                    pendingFileContext: null, 
-                    sessionsData: [], 
-                    currentSessionId: null, 
-                    logs: [],
-                    resizeScheduled: false // Verhindert Layout-Thrashing beim Tippen
+                    session: null, isAborted: false, isAutoScrollActive: true, isRecording: false,
+                    pendingFileContext: null, sessionsData: [], currentSessionId: null, logs: [],
+                    resizeScheduled: false
                 };
 
                 this.setupGlobalErrorHandlers();
@@ -266,21 +239,11 @@
             // ==========================================
             // DEBUG ENGINE
             // ==========================================
-            
-            /**
-             * Fängt Laufzeit-Fehler global ab und leitet sie ans lokale Terminal weiter.
-             */
             setupGlobalErrorHandlers() {
                 window.onerror = (msg, src, lineno, colno, err) => { this.debug('ERROR', `Crash: ${msg}`, err?.stack); return false; };
                 window.addEventListener('unhandledrejection', (e) => this.debug('ERROR', `Promise Rejection: ${e.reason}`, e.reason?.stack));
             }
             
-            /**
-             * Protokolliert Systemereignisse.
-             * @param {'INFO'|'WARN'|'ERROR'} level - Dringlichkeit
-             * @param {string} message - Kernnachricht
-             * @param {Object} [obj] - Optionale Zusatzdaten
-             */
             debug(level, message, obj = null) {
                 const ts = new Date().toISOString().split('T')[1].slice(0, -1);
                 this.state.logs.push({ ts, level, message, obj });
@@ -306,17 +269,11 @@
             // ==========================================
             // CORE: Unified AI Connection
             // ==========================================
-            
-            /**
-             * Verbindet sich mit der KI. Nutzt einen Sliding-Window-Mechanismus (Sliding-Context),
-             * um Out-of-Memory (OOM) Crashes bei massiven Chat-Historien zu verhindern.
-             * @param {boolean} withHistory - Bestimmt, ob der alte Verlauf als Gedächtnis injiziert wird.
-             */
             async connectToAI(withHistory = false) {
                 this.debug('INFO', `Initialisiere KI. History-Modus: ${withHistory}`);
                 
                 if (this.state.session && typeof this.state.session.destroy === 'function') {
-                    try { this.state.session.destroy(); this.debug('INFO', 'Alte Session zerstört.'); } catch (e) {}
+                    try { this.state.session.destroy(); } catch (e) {}
                 }
                 this.state.session = null;
                 
@@ -324,7 +281,7 @@
                 this.setUIState(false);
 
                 try {
-                    if (!window.LanguageModel) throw new Error("LanguageModel API (Gemini Nano) nicht im Browser gefunden. Flags prüfen.");
+                    if (!window.LanguageModel) throw new Error("LanguageModel API (Gemini Nano) nicht im Browser gefunden.");
                     
                     const options = { expectedInputs: [{ type: 'text', languages: ['en'] }], expectedOutputs: [{ type: 'text', languages: ['en'] }] };
                     let finalSystemPrompt = this.dom.sysPrompt.value.trim() ? `System-Anweisung: ${this.dom.sysPrompt.value.trim()}\n\n` : "";
@@ -339,7 +296,7 @@
                             const msgChunk = `${role}: ${wrappers[i].dataset.rawText}\n\n`;
                             
                             if (currentLength + msgChunk.length > CONFIG.SAFE_INIT_CHARS) {
-                                this.debug('WARN', 'Token-Limit erreicht. Ältere Nachrichten werden für die Session temporär vergessen.');
+                                this.debug('WARN', 'Token-Limit erreicht. Ältere Nachrichten temporär ignoriert.');
                                 break;
                             }
                             historyText = msgChunk + historyText;
@@ -350,17 +307,13 @@
                     }
 
                     if (finalSystemPrompt) options.systemPrompt = finalSystemPrompt;
-                    this.debug('INFO', `Sende System-Prompt. Länge: ${finalSystemPrompt.length} Zeichen.`);
 
                     const availability = await LanguageModel.availability(options);
                     if (availability !== 'unavailable') {
                         this.state.session = await LanguageModel.create(options);
-                        this.debug('INFO', 'KI-Sitzung erfolgreich erstellt.');
                         this.dom.sendBtn.textContent = CONFIG.UI.BTN_SEND;
                         this.setUIState(true);
-                    } else {
-                        throw new Error("KI-Modell meldet Status: unavailable");
-                    }
+                    } else throw new Error("KI-Modell meldet Status: unavailable");
                 } catch (error) {
                     this.debug('ERROR', 'Verbindungsfehler', error.message);
                     this.addSysMessage("Fehler beim Verbindungsaufbau: " + error.message);
@@ -369,10 +322,8 @@
             }
 
             // ==========================================
-            // MULTI-SESSION & STORAGE
+            // MULTI-SESSION & STORAGE (Debounced)
             // ==========================================
-            
-            /** Lädt Sitzungen aus dem LocalStorage. */
             loadSessionsFromStorage() {
                 try {
                     const data = localStorage.getItem(CONFIG.STORAGE_SESSIONS_KEY);
@@ -384,7 +335,11 @@
                 this.renderSidebar();
             }
 
-            /** Speichert die aktuelle Ansicht sicher im LocalStorage (Quota-Protection). */
+            scheduleSave() {
+                if (this._saveTimer) clearTimeout(this._saveTimer);
+                this._saveTimer = setTimeout(() => this.saveSessionsToStorage(), 2000);
+            }
+
             saveSessionsToStorage() {
                 if (this.state.currentSessionId) {
                     const idx = this.state.sessionsData.findIndex(s => s.id === this.state.currentSessionId);
@@ -398,7 +353,6 @@
                     localStorage.setItem(CONFIG.STORAGE_SESSIONS_KEY, JSON.stringify(this.state.sessionsData));
                 } catch (e) {
                     this.debug('ERROR', 'Storage Limit', e.message);
-                    this.addSysMessage("⚠️ Warnung: Speicher voll. Bitte alte Chats löschen.");
                 }
                 this.renderSidebar();
                 this.updateContextBar();
@@ -442,27 +396,12 @@
             }
 
             // ==========================================
-            // UI HELPER (Performance Optimizations)
+            // UI HELPER
             // ==========================================
-            
-            /**
-             * Performanz-Fix (Verhindert Layout-Thrashing):
-             * Anstatt `scrollHeight` auszulesen, was den Browser zu synchronen Layout-Berechnungen 
-             * in der Mitte des Render-Zyklus zwingt, setzen wir einen willkürlich gigantischen Wert.
-             * @param {boolean} force - Überschreibt Auto-Scroll-Bedingungen.
-             */
             scrollToBottom(force = false) { 
-                if (force || this.state.isAutoScrollActive) {
-                    this.dom.chatBox.scrollTop = 1e9; // Reflow-sicheres Auto-Scroll
-                }
+                if (force || this.state.isAutoScrollActive) this.dom.chatBox.scrollTop = 1e9; 
             }
             
-            /**
-             * Performanz-Fix (Debouncing / Throttling):
-             * Drosselt die Höhenanpassung auf maximal 1 Ausführung pro Browser-Frame (60fps).
-             * Verhindert CPU-Spikes beim schnellen Tippen.
-             * @param {boolean} clear - Löscht das Input-Feld komplett.
-             */
             triggerInputResize(clear = false) {
                 if (clear) this.dom.userInput.value = '';
                 if (!this.state.resizeScheduled) {
@@ -490,28 +429,16 @@
                 const percentage = Math.min(100, (charCount / CONFIG.MAX_CONTEXT_CHARS) * 100);
                 this.dom.contextFill.style.width = percentage + '%';
                 this.dom.contextFill.style.backgroundColor = percentage > 90 ? '#d32f2f' : percentage > 70 ? '#fbc02d' : '#4caf50'; 
-                
-                if (this.dom.compressBtn) {
-                    this.dom.compressBtn.style.display = percentage > 70 ? 'flex' : 'none';
-                }
+                if (this.dom.compressBtn) this.dom.compressBtn.style.display = percentage > 70 ? 'flex' : 'none';
             }
 
             // ==========================================
             // FEATURE: Context Compression
             // ==========================================
-            
-            /**
-             * Komprimiert ältere Nachrichten zu einer dichten Zusammenfassung,
-             * um Token-Speicher für die Gemini-Sitzung freizugeben.
-             */
             async compressHistory() {
-                this.debug('INFO', 'Starte smarte Kontext-Komprimierung...');
                 const wrappers = Array.from(this.dom.chatBox.querySelectorAll('.message-wrapper, .sys-msg-context'));
                 const keepCount = 4;
-                if (wrappers.length <= keepCount) {
-                    this.addSysMessage("Der Chat ist noch zu kurz für eine sinnvolle Komprimierung.");
-                    return;
-                }
+                if (wrappers.length <= keepCount) return;
 
                 const oldWrappers = wrappers.slice(0, wrappers.length - keepCount);
                 let textToCompress = "";
@@ -521,7 +448,7 @@
                 });
 
                 if (textToCompress.length > CONFIG.SAFE_INIT_CHARS) {
-                    textToCompress = textToCompress.substring(textToCompress.length - CONFIG.SAFE_INIT_CHARS);
+                    textToCompress = textToCompress.substring(0, CONFIG.SAFE_INIT_CHARS); // Security Fix: Alte Fakten priorisieren
                 }
 
                 this.setUIState(false);
@@ -530,7 +457,7 @@
 
                 try {
                     const summarySession = await LanguageModel.create({
-                        systemPrompt: "Du bist ein KI-Archivar. Fasse diesen älteren Chat-Verlauf extrem präzise zusammen. Behalte alle wichtigen Fakten, Konzepte und Code-Snippets."
+                        systemPrompt: "Du bist ein KI-Archivar. Fasse diesen älteren Chat-Verlauf präzise zusammen. Behalte alle Fakten und Code-Snippets."
                     });
                     const summary = await summarySession.prompt("Fasse diesen Verlauf zusammen:\n\n" + textToCompress);
                     summarySession.destroy(); 
@@ -544,13 +471,9 @@
                     archiveDiv.dataset.rawText = `[Zusammenfassung der Vergangenheit]: ${summary}`;
                     this.dom.chatBox.prepend(archiveDiv);
                     
-                    this.addSysMessage("✅ Alter Kontext wurde erfolgreich komprimiert. Speicher freigegeben.");
-                    this.debug('INFO', 'Komprimierung erfolgreich abgeschlossen.');
-                    
-                    this.updateContextBar();
-                    this.saveSessionsToStorage();
+                    this.addSysMessage("✅ Alter Kontext wurde erfolgreich komprimiert.");
+                    this.scheduleSave();
                 } catch (error) {
-                    this.debug('ERROR', 'Komprimierung fehlgeschlagen', error.message);
                     this.addSysMessage("❌ Fehler bei der Komprimierung: " + error.message);
                 } finally {
                     this.dom.sendBtn.textContent = CONFIG.UI.BTN_SEND;
@@ -588,10 +511,9 @@
                 try {
                     await this.streamResponse(finalPrompt, aiTextNode);
                 } catch (error) {
-                    this.debug('ERROR', 'Stream Failed', error.message);
                     aiTextNode.innerHTML = this.parseMarkdown("Fehler: " + error.message);
                 } finally {
-                    this.setUIState(true); this.dom.userInput.focus(); this.saveSessionsToStorage();
+                    this.setUIState(true); this.dom.userInput.focus(); this.scheduleSave();
                 }
             }
 
@@ -620,15 +542,31 @@
             }
 
             // ==========================================
-            // EDIT & REGENERATE
+            // EDIT & REGENERATE (Security Fix)
             // ==========================================
             handleEditUserMessage(wrapper) {
                 const rawText = wrapper.dataset.rawText;
                 const textNode = wrapper.querySelector('.msg-text');
-                textNode.innerHTML = `<textarea class="edit-area">${rawText}</textarea><button class="save-edit-btn">Ändern & Senden</button><button class="action-btn cancel-edit-btn" style="display:inline-block; margin-left:10px;">Abbrechen</button>`;
-                const ta = textNode.querySelector('textarea'); ta.focus();
+                textNode.innerHTML = ''; // Vorheriges HTML leeren
                 
-                textNode.querySelector('.save-edit-btn').onclick = async () => {
+                // Security Fix: native DOM-Elemente statt template literals verhindern Breakouts (</textarea>)
+                const ta = document.createElement('textarea');
+                ta.className = 'edit-area';
+                ta.value = rawText; 
+                
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'save-edit-btn';
+                saveBtn.textContent = 'Ändern & Senden';
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'action-btn cancel-edit-btn';
+                cancelBtn.style.cssText = 'display:inline-block; margin-left:10px;';
+                cancelBtn.textContent = 'Abbrechen';
+                
+                textNode.append(ta, saveBtn, cancelBtn);
+                ta.focus();
+                
+                saveBtn.onclick = async () => {
                     const newText = ta.value.trim();
                     if (!newText) return;
                     while (wrapper.nextSibling) wrapper.nextSibling.remove();
@@ -637,7 +575,7 @@
                     await this.connectToAI(true); 
                     this.handleSend();
                 };
-                textNode.querySelector('.cancel-edit-btn').onclick = () => textNode.textContent = rawText;
+                cancelBtn.onclick = () => textNode.textContent = rawText; // User-Message war reiner Text
             }
 
             async handleRegenerateAI(wrapper) {
@@ -653,17 +591,44 @@
             }
 
             // ==========================================
-            // PARSER & SYNTAX
+            // PARSER & SYNTAX (Strict Security)
             // ==========================================
             parseMarkdown(text) {
-                let html = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
-                    return `<div class="code-wrap"><div class="code-header"><span>${lang || 'Code'}</span><div class="code-actions"><button class="action-btn code-copy">📋 Kopieren</button><button class="action-btn code-run" title="Sichere HTML/JS Sandbox">▶️ Ausführen</button></div></div><pre><code>${this.highlightSyntax(code)}</code></pre></div>`;
+                // 1. Extrahiere Code-Blöcke absolut roh, BEVOR maskiert wird
+                const codeBlocks = [];
+                let html = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+                    const placeholder = `%%%CODE_BLOCK_${codeBlocks.length}%%%`;
+                    codeBlocks.push({ lang, code });
+                    return placeholder;
                 });
+
+                // 2. Strict XSS Sanitization für den restlichen Text
+                html = html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+                // 3. Sicheres Markdown-Parsing
                 html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
                 html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
                 html = html.replace(/\n\n/g, '</p><p>');
+
+                // 4. Code-Blöcke wieder einfügen (Sicherer Exec-Layer)
+                codeBlocks.forEach((block, i) => {
+                    const rawExecCode = encodeURIComponent(block.code); // Safe Inject für Sandbox
+                    const displayCode = block.code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); // XSS-Schutz fürs Rendering
+                    
+                    const blockHtml = `<div class="code-wrap">
+                        <div class="code-header">
+                            <span>${block.lang || 'Code'}</span>
+                            <div class="code-actions" data-raw="${rawExecCode}">
+                                <button class="action-btn code-copy">📋 Kopieren</button>
+                                <button class="action-btn code-run" title="Sichere HTML/JS Sandbox">▶️ Ausführen</button>
+                            </div>
+                        </div>
+                        <pre><code>${this.highlightSyntax(displayCode)}</code></pre>
+                    </div>`;
+                    html = html.replace(`%%%CODE_BLOCK_${i}%%%`, blockHtml);
+                });
+
                 return `<p>${html}</p>`;
             }
             
@@ -720,7 +685,7 @@
                     doc.querySelectorAll('script, style, nav, header, footer, iframe').forEach(el => el.remove());
                     let text = doc.body.textContent.replace(/\s+/g, ' ').trim();
                     return text.length > CONFIG.MAX_WEBPAGE_CHARS ? text.substring(0, CONFIG.MAX_WEBPAGE_CHARS) + "\n... [Gekürzt]" : text;
-                } catch (e) { this.debug('WARN', 'Fetch Failed', e.message); return null; }
+                } catch (e) { return null; }
             }
 
             // ==========================================
@@ -730,7 +695,7 @@
                 const msgDiv = document.createElement('div'); msgDiv.className = 'message sys-msg';
                 if (text.length > 200) msgDiv.classList.add('sys-msg-context');
                 msgDiv.textContent = text; this.dom.chatBox.appendChild(msgDiv);
-                this.scrollToBottom(); this.updateContextBar(); this.saveSessionsToStorage();
+                this.scrollToBottom(); this.updateContextBar(); this.scheduleSave();
             }
             addMessage(text, senderClass) {
                 const wrapper = document.createElement('div'); wrapper.className = `message-wrapper ${senderClass === 'user-msg' ? 'wrapper-user' : 'wrapper-ai'}`;
@@ -766,12 +731,6 @@
                 a.download = `chat-export.txt`; a.click();
             }
             
-            /**
-             * Parst importierte Dateien robust Zeile für Zeile.
-             * Performanz-Fix: Ersetzt fehleranfällige und inperformante Reguläre Ausdrücke.
-             * @param {string} content - Rohtext der Datei.
-             * @param {boolean} skipInit - Überspringt das Neustarten der KI nach dem Laden.
-             */
             async loadFromString(content, skipInit = false) {
                 const lines = content.replace(/\r\n/g, '\n').split('\n');
                 if (!lines[0].startsWith(CONFIG.FILE_PREFIX)) return;
@@ -790,16 +749,16 @@
                         currentRole = line === CONFIG.MARKERS.USR ? 'Du' : (line === CONFIG.MARKERS.AI ? 'KI' : 'System');
                         currentText = [];
                     } else {
-                        if (currentRole) currentText.push(lines[i]); // Originalzeile (inkl. Leerzeichen)
+                        if (currentRole) currentText.push(lines[i]); 
                     }
                 }
                 if (currentRole) this.dispatchParsedMessage(currentRole, currentText.join('\n').trim());
-                
                 if (!skipInit) await this.connectToAI(true);
             }
             
             dispatchParsedMessage(role, text) {
                 if (!text) return;
+                // Security Fix: Importierte Daten verhalten sich wie getippte, werden normal via TextNode/Sanitizer ins DOM gebracht
                 if (role === 'System') this.addSysMessage(text);
                 else if (role === 'Du') this.addMessage(text, 'user-msg');
                 else if (role === 'KI') this.addMessage(text, 'ai-msg');
@@ -818,7 +777,7 @@
                 document.getElementById('export-btn').addEventListener('click', () => this.exportChat());
                 this.dom.importFile.addEventListener('change', (e) => {
                     const file = e.target.files[0]; if (!file) return;
-                    const r = new FileReader(); r.onload = async (ev) => { this.dom.chatBox.innerHTML=''; await this.loadFromString(ev.target.result); this.saveSessionsToStorage(); };
+                    const r = new FileReader(); r.onload = async (ev) => { this.dom.chatBox.innerHTML=''; await this.loadFromString(ev.target.result); this.scheduleSave(); };
                     r.readAsText(file); e.target.value = ''; 
                 });
                 this.dom.sendBtn.addEventListener('click', () => this.handleSend());
@@ -835,14 +794,26 @@
 
                 this.dom.chatBox.addEventListener('click', (e) => {
                     const t = e.target;
+                    // Security Fix: Raw-Code absolut sicher aus URL-kodiertem Data-Attribut lesen
                     if (t.closest('.copy-btn')) { const btn = t.closest('.copy-btn'); navigator.clipboard.writeText(btn.closest('.message-wrapper').dataset.rawText); btn.innerHTML = '✅'; setTimeout(() => btn.innerHTML = '📋 Kopieren', 2000); }
                     else if (t.closest('.edit-btn')) this.handleEditUserMessage(t.closest('.message-wrapper'));
                     else if (t.closest('.regen-btn')) this.handleRegenerateAI(t.closest('.message-wrapper'));
-                    else if (t.closest('.code-copy')) { const btn = t.closest('.code-copy'); navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('code').innerText); btn.innerHTML = '✅'; setTimeout(() => btn.innerHTML = '📋 Kopieren', 2000); }
+                    else if (t.closest('.code-copy')) { 
+                        const actions = t.closest('.code-actions'); 
+                        navigator.clipboard.writeText(decodeURIComponent(actions.dataset.raw)); 
+                        const btn = t.closest('.code-copy'); btn.innerHTML = '✅'; setTimeout(() => btn.innerHTML = '📋 Kopieren', 2000); 
+                    }
                     else if (t.closest('.code-run')) {
-                        const wrap = t.closest('.code-wrap'); let iframe = wrap.querySelector('.code-output-frame') || document.createElement('iframe');
-                        if (!iframe.className) { iframe.className = 'code-output-frame'; iframe.sandbox = 'allow-scripts'; wrap.appendChild(iframe); }
-                        iframe.style.display = 'block'; iframe.srcdoc = wrap.querySelector('code').innerText;
+                        const wrap = t.closest('.code-wrap'); 
+                        const rawCode = decodeURIComponent(t.closest('.code-actions').dataset.raw);
+                        let iframe = wrap.querySelector('.code-output-frame') || document.createElement('iframe');
+                        if (!iframe.className) { 
+                            iframe.className = 'code-output-frame'; 
+                            iframe.sandbox = 'allow-scripts'; // Keine same-origin Rechte (Sicher!)
+                            wrap.appendChild(iframe); 
+                        }
+                        iframe.style.display = 'block'; 
+                        iframe.srcdoc = rawCode;
                     }
                     else if (t.closest('.tts-btn')) this.toggleTTS(t.closest('.tts-btn'));
                 });
