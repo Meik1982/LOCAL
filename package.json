@@ -1,0 +1,20 @@
+{
+  "name": "local-chat",
+  "version": "1.1.0",
+  "description": "LOCAL (Lokale Offline Chat Anwendungs-Logik): Zero-Dependency In-Browser Chat mit Chrome Gemini Nano",
+  "main": "index.html",
+  "scripts": {
+    "test": "node --test tests/test_local.js",
+    "lint": "node -e 'const fs=require(\"fs\"),vm=require(\"vm\");new vm.Script(fs.readFileSync(\"index.html\",\"utf8\").match(/<script>([\\s\\S]*?)<\\/script>/)[1]);console.log(\"JS Syntax Valid!\")'"
+  },
+  "keywords": [
+    "chrome-ai",
+    "gemini-nano",
+    "prompt-api",
+    "zero-dependency",
+    "offline-llm",
+    "local-ai"
+  ],
+  "author": "Meik",
+  "license": "MIT"
+}

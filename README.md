@@ -1,61 +1,101 @@
-LOCAL (Lokale Offline Chat Anwendungs-Logik)
+# LOCAL (Lokale Offline Chat Anwendungs-Logik)
 
-Ein vollständig lokaler, offline-fähiger KI-Chat-Client (Zero-Dependency), der direkt im Browser läuft. Die gesamte Anwendung besteht aus einer einzigen, hochoptimierten HTML-Datei und greift nativ auf die integrierte Chrome-KI (Gemini Nano) zurück.
+Ein vollständig lokaler, offline-fähiger KI-Chat-Client (**Zero-Dependency**), der direkt im Browser läuft. Die gesamte Anwendung besteht aus einer einzigen, hochoptimierten HTML-Datei (`index.html`) und greift nativ auf die integrierte Chrome-KI (**Gemini Nano**) via Chrome Prompt API zurück.
 
-Kein Server, kein Datenabfluss!
+**Kein Server, kein Backend, kein Datenabfluss!**
 
-✨ Kern-Features
+---
 
-100 % Lokal & Offline: Nutzt die native window.LanguageModel-API von Chrome. Prompts verlassen niemals dein Endgerät.
+## ✨ Kern-Features & Härtung
 
-Zero-Dependency Architektur: Vanilla JavaScript, CSS und HTML. Keine externen Frameworks (wie React) oder externe Parser-Bibliotheken nötig.
+- **100 % Lokal & Offline:** Nutzt die native Prompt API (`window.LanguageModel` und `window.ai.languageModel`). Prompts verlassen niemals dein Endgerät.
+- **Zero-Dependency Architektur:** Reines Vanilla JavaScript (ES6+), modernes CSS und HTML5. Keine externen Frameworks (React, Vue), keine Bundler, keine externen CDN-Skripte.
+- **Smart Context Compression:** Ein adaptiver Sliding-Window-Algorithmus mit KI-gestützter "Gedächtnis-Archivierung" fasst ältere Gesprächsteile automatisch zusammen und schützt vor Out-of-Memory (OOM) oder Token-Limit-Abbrüchen.
+- **Multi-Session Storage mit Quota-Guard:** Persistente Speicherung mehrerer Chats direkt im lokalen Browser-Speicher (`LocalStorage`) mit 1,5s Debouncing und präzisem Quota-Überlaufschutz.
+- **Isolierte Code-Sandbox mit Ein-/Ausblenden:** Generierter HTML/JS-Code kann mit einem Klick in einem streng isolierten `<iframe>` (`sandbox="allow-scripts"`, ohne `allow-same-origin`) ausgeführt und getestet werden.
+- **Kryptografische Token-Sicherheit:** Kollisionsfreie Codeblock-Platzhalter und geschützte Syntax-Hervorhebung verhindern Entity-Mangles oder Code-Injektionen.
+- **Datenschutz & Proxy-Steuerung:** Web-URL-Analysen laufen standardmäßig über einen konfigurierbaren CORS-Proxy und können im Persona-/Einstellungsmenü mit einem Klick komplett deaktiviert werden.
+- **Sprachsteuerung:** Natives Speech-to-Text (Mikrofon) und intelligentes Text-to-Speech (Vorlesen mit automatischer Sprachauswahl DE/EN).
+- **Kontext-Injektion:** Lokale Text- und Code-Dateien (TXT, MD, CSV, JSON, LOG, YAML, JS, HTML) bequem per Drag & Drop in den Prompt einspeisen.
+- **Integriertes Debug-Terminal:** Echtzeit-Error-Handling (`window.onerror`, `unhandledrejection`), Hotkey `Strg+D` / `Cmd+D` und Export als `.log`.
 
-Smart Context Compression: Ein Sliding-Window-Algorithmus mit KI-gestützter "Gedächtnis-Archivierung" verhindert Out-of-Memory (OOM) Abstürze bei extrem langen Chatverläufen.
+---
 
-Multi-Session Storage: Persistente Speicherung mehrerer Chats direkt im lokalen Browser-Cache (LocalStorage) mit Quota-Schutz.
+## 🚀 Installation & Systemanforderungen
 
-Integrierte Code-Sandbox: Generierter HTML/JS-Code kann mit einem Klick in einem sicheren Iframe-Container ausgeführt und direkt im Chat getestet werden.
+Da die native Chrome Built-in AI aktuell als Standard-Web-API finalisiert wird, muss die KI-Engine im Chrome-Browser einmalig aktiviert werden.
 
-Sprachsteuerung: Natives Speech-to-Text (Mikrofon) und Text-to-Speech (Vorlesen).
+### Voraussetzungen
+1. **Google Chrome** (aktuelle Version / Canary / Dev).
+2. Hardware mit lokaler Modell-Unterstützung (ausreichend RAM und NPU/GPU).
 
-Kontext-Injektion: Fähigkeit, lokale Dateien (TXT, MD, CSV) per Drag & Drop einzulesen oder übermittelte Web-URLs als KI-Kontext zu nutzen.
+### Setup (Einmalige Freischaltung in Chrome)
+1. Öffne einen neuen Tab und navigiere zu:
+   `chrome://flags/#prompt-api-for-gemini-nano`
+   -> Setze den Wert auf **Enabled**.
+2. Navigiere zu:
+   `chrome://flags/#optimization-guide-on-device-model`
+   -> Setze den Wert auf **Enabled BypassPerfRequirement**.
+3. Klicke unten rechts auf **Relaunch**, um den Browser komplett neu zu starten.
+4. *(Optional / Diagnose)*: Falls das Modell noch nicht heruntergeladen wurde, navigiere zu `chrome://components`, suche nach **Optimization Guide On Device Model** und klicke auf **Nach Updates suchen**.
 
-Integriertes Debug-Terminal: Eine versteckte Konsole (Hotkey Strg+D) fängt Laufzeitfehler ab und protokolliert Systemereignisse für einfache Fehlerbehebung.
+---
 
-🚀 Installation & Systemanforderungen
+## 💻 Nutzung
 
-Da diese Technologie aktuell (Stand 2026) in der experimentellen Phase ist, muss die KI-Engine im Chrome-Browser manuell aktiviert werden.
+Sobald die Flags aktiviert sind:
+1. Repository klonen oder die Datei `index.html` herunterladen:
+   ```bash
+   git clone https://github.com/Meik1982/LOCAL.git
+   ```
+2. Öffne die `index.html` (oder den Alias `chat.html`) per Doppelklick in Google Chrome.
+3. Die Status-Pille oben zeigt `🟢 Gemini Nano bereit` an – du kannst direkt losschreiben!
 
-Voraussetzungen:
+---
 
-Google Chrome (neueste Version).
+## ⌨️ Tastaturkürzel (Cross-Platform)
 
-Hardware, die lokale KI-Modelle unterstützt (ausreichend RAM/NPU).
+| Tastenkombination (Linux/Windows) | Tastenkombination (macOS) | Aktion |
+| :--- | :--- | :--- |
+| `Strg + D` | `Cmd + D` | Debug-Terminal ein-/ausblenden |
+| `Strg + B` | `Cmd + B` | Seitenleiste (Sessions) umschalten |
+| `Strg + L` | `Cmd + L` | Neue Chat-Sitzung erstellen |
+| `Strg + S` | `Cmd + S` | Aktuellen Chat exportieren (`.txt`) |
+| `Strg + O` | `Cmd + O` | Gespeicherten Chat laden (`.txt`) |
+| `Strg + M` | `Cmd + M` | Spracheingabe (Mikrofon) starten/stoppen |
+| `Enter` | `Enter` | Nachricht absenden |
+| `Shift + Enter` | `Shift + Enter` | Neuer Absatz im Eingabefeld |
 
-Setup (Einmalige Freischaltung in Chrome):
+---
 
-Öffne einen neuen Tab und navigiere zu: chrome://flags/#prompt-api-for-gemini-nano
+## 🧪 Qualitätssicherung & Tests
 
-Setze den Wert auf Enabled.
+Das Repository enthält eine automatisierte Test-Suite auf Basis des nativen Node.js Test-Runners (keine externen npm-Pakete erforderlich):
 
-Navigiere zu: chrome://flags/#optimization-guide-on-device-model
+```bash
+# Mit Node.js direkt ausführen:
+npm test
 
-Setze den Wert auf Enabled BypassPerfRequirement.
+# Oder über das Test-Skript:
+./tests/run_tests.sh
+```
 
-Klicke unten rechts auf Relaunch, um den Browser komplett neu zu starten.
+Geprüft werden:
+- XSS-Sanitization im Markdown-Parser
+- Struktur-Elemente (Überschriften, Listen, Blockquotes, Inline-Code)
+- Syntax-Highlighter Tokenisierung und Entity-Immunität
+- Kollisionssicherheit bei Code-Blöcken
+- Verlustfreie Serialisierung (Export / Import Roundtrip)
+- Kontext-Sliding-Window Budget-Grenzwerte
 
-(Optional) Falls die KI beim ersten Start noch lädt, navigiere zu chrome://components, suche nach "Optimization Guide On Device Model" und klicke auf "Nach Updates suchen".
+---
 
-Nutzung:
+## 📐 Architektur
 
-Sobald die Flags aktiviert sind, lade dir einfach die chat.html aus diesem Repository herunter und öffne sie mit einem Doppelklick in Chrome. Fertig.
+Detaillierte Informationen zum Datenfluss, der Sliding-Window-Kompression und dem Sicherheitsmodell findest du in der [ARCHITECTURE.md](ARCHITECTURE.md).
 
-⚠️ Architektur-Hinweise & Datenschutz
+---
 
-Lokale Ausführung: Jegliche Logik, Parsings und KI-Berechnungen passieren exklusiv auf deinem Gerät.
+## 📜 Lizenz
 
-Web-Abrufe (Einzige Ausnahme): Wenn du eine URL in den Chat postest (z. B. Fasse https://beispiel.de zusammen), nutzt das Skript den öffentlichen Proxy api.allorigins.win, um CORS-Blockaden zu umgehen und die Seite als Text in den Chat zu laden. Wenn du strikten Datenschutz bei der URL-Analyse benötigst, hoste die HTML-Datei lokal über einen Server oder passe die Proxy-URL im Quellcode an.
-
-📜 Lizenz
-
-Dieses Projekt steht unter der MIT-Lizenz.
+Dieses Projekt steht unter der **MIT-Lizenz**.
