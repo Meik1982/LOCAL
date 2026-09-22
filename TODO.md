@@ -52,13 +52,30 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
 
 ---
 
-## 3. Zukünftige Optimierungspotenziale (Backlog)
+## 3. Zukünftige Optimierungspotenziale (Backlog – nach Priorität sortiert)
 
-- [ ] **Offline PWA & Service Worker:**
-  Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching der App, sodass `LOCAL` auch als installierbare Desktop-App ohne lokalen Webserver offline gestartet werden kann.
-- [ ] **Wasm/WebGPU Fallback (Hybrid-Mode):**
-  Optionaler Fallback auf In-Browser-Modelle via WebGPU (z. B. WebLLM / ONNX Runtime Web / transformers.js) für Systeme und Browser ohne aktivierte Chrome Prompt API (Firefox, Safari, Chromium-Forks).
-- [ ] **Erweiterte Export-Formate:**
-  Export von Unterhaltungen nicht nur als `.txt`, sondern wahlweise als sauberes Markdown (`.md`) oder strukturiertes JSON (`.json`) mit Rollen-Metadaten.
-- [ ] **System-Prompt Presets:**
-  Auswahl vordefinierter System-Prompts (z. B. „Senior Software Engineer“, „Übersetzer“, „Kritischer Reviewer“) direkt im Persona-Panel.
+### Priorität 1 (Kritisch): Automatisierte Systemdiagnose & Onboarding-Troubleshooter
+- [ ] **Interaktive Diagnose-Engine (Windows / macOS / Linux):**
+  Automatischer Hardware- und API-Prüflauf beim Start (`checkSystemEnvironment()`):
+  - Prüfung der API-Präsenz (`window.LanguageModel` / `window.ai.languageModel`) mit gezieltem Hinweis auf `chrome://flags/#prompt-api-for-gemini-nano`.
+  - Erkennung des Modell-Downloadstatus (`readily`, `after-download`, `no`, `unavailable`).
+  - Spezifische Handlungsanweisungen bei Windows-Stolperfallen: Hinweis auf `chrome://components` (Optimization Guide On Device Model), `chrome://flags/#optimization-guide-on-device-model` (`Enabled BypassPerfRequirement`) und freien Festplattenspeicher (>22 GB auf C:).
+  - Interaktive Diagnose-Karte im Chat bei Verbindungsfehlern mit schrittweiser Checkliste und One-Click-Re-Test-Button.
+
+### Priorität 2 (Hoch): Offline PWA & Service Worker
+- [ ] **Installierbare Desktop-App (Progressive Web App):**
+  Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching aller Assets (Icons, HTML, CSS, JS). Ermöglicht die Installation als vollwertige Desktop-App mit eigenem Fenster sowie den garantierten Start ohne Webserver oder Internetverbindung.
+
+### Priorität 3 (Mittel): Erweiterte Export-Formate (Markdown & JSON)
+- [ ] **Strukturierte Dokumenten-Exporte:**
+  Export von Unterhaltungen wahlweise als:
+  - **Markdown (`.md`):** Sauber formatierter Text mit echten Headings, Codeblöcken und Zitaten (ideal für Obsidian, Notion und GitHub).
+  - **JSON (`.json`):** Maschinenlesbare Struktur mit Timestamps, Rollen (`user`, `assistant`, `system`) und Token-Statistiken für automatisierte Weiterverarbeitung.
+
+### Priorität 4 (Mittel): System-Prompt Presets (Persona-Vorlagen)
+- [ ] **Vordefinierte Experten-Rollen im Persona-Panel:**
+  Schnellwahl-Dropdown im Einstellungsmenü für kuratierte System-Prompts (z. B. „Code-Reviewer & Refactoring-Spezialist“, „Prüftechniker / Sicherheits-Auditor“, „Kritischer Sparringspartner“, „Präziser Übersetzer“).
+
+### Priorität 5 (Langfristig): Wasm / WebGPU Fallback (Hybrid-Engine)
+- [ ] **Plattformunabhängige In-Browser-KI via WebGPU:**
+  Optionale Integration einer WebGPU/Wasm-Engine (z. B. WebLLM / transformers.js mit SmolLM oder Qwen) als automatischer Fallback für Browser ohne native Chrome Prompt API (Firefox, Safari, Chromium-Forks).
