@@ -87,8 +87,11 @@ flowchart TD
     I --> J[Aktive Sitzung mit komprimiertem Verlauf re-initialisieren]
 ```
 
-1. **Beobachtung:** `updateContextBar()` ermittelt die aktuelle Zeichenanzahl aller Chat-Nodes im Verhältnis zu `CONFIG.MAX_CONTEXT_CHARS` (12.000 Zeichen).
-2. **Archivierung:** Bei Schwellenwertüberschreitung werden alle Nachrichten bis auf die letzten 4 Chunks gebündelt und an eine separate, flüchtige `summarySession` übergeben.
+1. **Beobachtung & Telemetrie:** 
+   - **Zweistufige Telemetrie:** Die App liest primär die synchronen Session-Eigenschaften `tokensSoFar` und `maxTokens` der Prompt API aus. Stehen diese nicht direkt zur Verfügung, wird im Hintergrund ein debounctes `session.countPromptTokens()` ausgeführt.
+   - **Heuristischer Fallback:** Ist noch keine KI-Session aktiv oder unterstützt der Browser die Methoden nicht, berechnet die App die Auslastung präzise über die Zeichenanzahl im Verhältnis zu `CONFIG.MAX_CONTEXT_CHARS` (12.000 Zeichen).
+   - **Header-Telemetrie:** Ein Live-Badge (`📊 X / Y Tok (Z%)`) im Header visualisiert den exakten Speicherstand ohne Hover-Bedarf.
+2. **Archivierung:** Bei Schwellenwertüberschreitung (>65 %) wird der Komprimierungs-Button eingeblendet. Bei Auslösung werden alle Nachrichten bis auf die letzten 4 Chunks gebündelt und an eine separate, flüchtige `summarySession` übergeben.
 3. **Re-Injektion:** Die Antwort des Archivars wird als hervorgehobenes `sys-msg-context`-Element vorangestellt und in nachfolgende System-Prompts übernommen.
 
 ---

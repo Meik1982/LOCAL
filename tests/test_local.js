@@ -149,6 +149,40 @@ const appMock = {
             messages.push({ role: currentRole, text: currentText.join('\n').trim() });
         }
         return messages;
+    },
+    calculateContextTelemetry(session, charCount, measuredTokens = null) {
+        let tokenInfo = null;
+        if (session && typeof session.tokensSoFar === 'number' && typeof session.maxTokens === 'number') {
+            tokenInfo = {
+                current: session.tokensSoFar,
+                max: session.maxTokens,
+                source: 'session_props'
+            };
+        } else if (measuredTokens !== null && session) {
+            tokenInfo = {
+                current: measuredTokens,
+                max: session.maxTokens || 4096,
+                source: 'count_api'
+            };
+        }
+
+        let percentage = 0;
+        let badgeText = "";
+        let tooltip = "";
+
+        if (tokenInfo && tokenInfo.max > 0) {
+            percentage = Math.min(100, (tokenInfo.current / tokenInfo.max) * 100);
+            const roundedPct = Math.round(percentage);
+            tooltip = `Kontext: ${tokenInfo.current} / ${tokenInfo.max} Tokens (${roundedPct}%) [Prompt API ${tokenInfo.source === 'session_props' ? 'Echtzeit' : 'Messung'}]`;
+            badgeText = `📊 ${tokenInfo.current} / ${tokenInfo.max} Tok (${roundedPct}%)`;
+        } else {
+            percentage = Math.min(100, (charCount / this.CONFIG.MAX_CONTEXT_CHARS) * 100);
+            const roundedPct = Math.round(percentage);
+            tooltip = `Kontext: ca. ${charCount} / ${this.CONFIG.MAX_CONTEXT_CHARS} Zeichen (${roundedPct}%) [Heuristik]`;
+            badgeText = `📊 ~${charCount} Zch (${roundedPct}%)`;
+        }
+
+        return { percentage, roundedPct: Math.round(percentage), badgeText, tooltip };
     }
 };
 
@@ -239,3 +273,37 @@ test('6. Kontext-Slicing & SAFE_INIT_CHARS Budget', () => {
     
     assert.equal(sliced.length, limit, 'Gesliceter Text darf SAFE_INIT_CHARS nicht überschreiten');
 });
+
+test('7. Token-Zählung mit synchronen Session-Properties (tokensSoFar / maxTokens)', () => {
+    const mockSession = {
+        tokensSoFar: 1024,
+        maxTokens: 4096
+    };
+    const telemetry = appMock.calculateContextTelemetry(mockSession, 3500);
+    
+    assert.equal(telemetry.percentage, 25, 'Prozentwert muss exakt 25% sein');
+    assert.equal(telemetry.badgeText, '📊 1024 / 4096 Tok (25%)');
+    assert.match(telemetry.tooltip, /Echtzeit/);
+});
+
+test('8. Token-Zählung mit asynchronem countPromptTokens() Messwert', () => {
+    const mockSession = {
+        maxTokens: 4096,
+        countPromptTokens: async (text) => 500
+    };
+    const telemetry = appMock.calculateContextTelemetry(mockSession, 1800, 500);
+    
+    assert.equal(telemetry.roundedPct, 12);
+    assert.equal(telemetry.badgeText, '📊 500 / 4096 Tok (12%)');
+    assert.match(telemetry.tooltip, /Messung/);
+});
+
+test('9. Token-Zählung Fallback auf Zeichen-Heuristik wenn keine Session aktiv', () => {
+    const telemetry = appMock.calculateContextTelemetry(null, 6000);
+    
+    // 6000 von 12000 Zeichen = 50%
+    assert.equal(telemetry.percentage, 50);
+    assert.equal(telemetry.badgeText, '📊 ~6000 Zch (50%)');
+    assert.match(telemetry.tooltip, /Heuristik/);
+});
+

@@ -47,13 +47,13 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   Unterstützung von `Cmd` (MetaKey) für macOS bei allen Tastenkombinationen (`Cmd+D`, `Cmd+B`, `Cmd+S`, `Cmd+O`, `Cmd+L`, `Cmd+M`).
 - [x] **Lückenlose Dokumentation:**
   Korrektur des Dateinamens im `README.md` (`index.html` und Symlink `chat.html`), Hinzufügen von `ARCHITECTURE.md` und sauberen JSDoc-Kommentaren im Quelltext.
+- [x] **Echte Token-Zählung via Chrome Prompt API:**
+  Zweistufige Telemetrie mit synchroner Abfrage von `tokensSoFar` / `maxTokens` und debounctem asynchronen `countPromptTokens()`. Direkte Visualisierung im Header-Badge (`📊 X / Y Tok (Z%)`) und robuster Zeichen-Heuristik-Fallback.
 
 ---
 
 ## 3. Zukünftige Optimierungspotenziale (Backlog)
 
-- [ ] **Echte Token-Zählung via Chrome Prompt API:**
-  Nutzung von `session.countPromptTokens()` und `session.maxTokens` anstelle geschätzter Zeichenlängen (`CONFIG.MAX_CONTEXT_CHARS`).
 - [ ] **Offline PWA & Service Worker:**
   Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching der App, sodass `LOCAL` auch als installierbare Desktop-App ohne lokalen Webserver offline gestartet werden kann.
 - [ ] **Wasm/WebGPU Fallback (Hybrid-Mode):**

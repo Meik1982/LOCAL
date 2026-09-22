@@ -10,7 +10,7 @@ Ein vollständig lokaler, offline-fähiger KI-Chat-Client (**Zero-Dependency**),
 
 - **100 % Lokal & Offline:** Nutzt die native Prompt API (`window.LanguageModel` und `window.ai.languageModel`). Prompts verlassen niemals dein Endgerät.
 - **Zero-Dependency Architektur:** Reines Vanilla JavaScript (ES6+), modernes CSS und HTML5. Keine externen Frameworks (React, Vue), keine Bundler, keine externen CDN-Skripte.
-- **Smart Context Compression:** Ein adaptiver Sliding-Window-Algorithmus mit KI-gestützter "Gedächtnis-Archivierung" fasst ältere Gesprächsteile automatisch zusammen und schützt vor Out-of-Memory (OOM) oder Token-Limit-Abbrüchen.
+- **Smart Context Compression & Live Token Telemetrie:** Zweistufige Token-Zählung (synchrone Prompt-API Properties `tokensSoFar`/`maxTokens`, asynchrones `countPromptTokens` und Heuristik-Fallback). Direkte Live-Anzeige im Header-Badge (`📊 X / Y Tok`). Bei >65 % Auslastung ermöglicht ein KI-Archivar das verlustfreie Verdichten älterer Gesprächsteile.
 - **Multi-Session Storage mit Quota-Guard:** Persistente Speicherung mehrerer Chats direkt im lokalen Browser-Speicher (`LocalStorage`) mit 1,5s Debouncing und präzisem Quota-Überlaufschutz.
 - **Isolierte Code-Sandbox mit Ein-/Ausblenden:** Generierter HTML/JS-Code kann mit einem Klick in einem streng isolierten `<iframe>` (`sandbox="allow-scripts"`, ohne `allow-same-origin`) ausgeführt und getestet werden.
 - **Kryptografische Token-Sicherheit:** Kollisionsfreie Codeblock-Platzhalter und geschützte Syntax-Hervorhebung verhindern Entity-Mangles oder Code-Injektionen.

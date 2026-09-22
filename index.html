@@ -301,6 +301,7 @@
                     <button id="toggle-sidebar-btn" class="icon-btn" title="Seitenleiste ein/ausblenden (Strg+B / Cmd+B)">☰</button>
                     <span>LOCAL (Gemini Nano)</span>
                     <span id="api-status-badge" class="header-status-badge">Prüfe KI...</span>
+                    <span id="token-counter-badge" class="header-status-badge" style="display: none; background: #222; color: #90caf9;" title="Kontext-Auslastung"></span>
                 </div>
                 <div class="header-actions">
                     <button id="toggle-settings-btn" class="icon-btn" title="Einstellungen & Persona">⚙️ Persona</button>
@@ -362,7 +363,8 @@
                 BTN_COMPRESS: "Komprimiere..."
             },
             DEFAULT_PROXY_URL: "https://api.allorigins.win/get?url=",
-            PROXY_TIMEOUT_MS: 8000
+            PROXY_TIMEOUT_MS: 8000,
+            DEFAULT_MAX_TOKENS: 4096
         };
 
         class AIChatApp {
@@ -380,6 +382,7 @@
                     cfgProxyAllow: document.getElementById('cfg-proxy-allow'),
                     cfgProxyUrl: document.getElementById('cfg-proxy-url'),
                     apiStatusBadge: document.getElementById('api-status-badge'),
+                    tokenBadge: document.getElementById('token-counter-badge'),
                     importFile: document.getElementById('import-file'),
                     contextContainer: document.getElementById('context-bar-container'),
                     contextFill: document.getElementById('context-bar-fill'),
@@ -732,19 +735,78 @@
                 this.dom.stopBtn.style.display = isGenerating ? 'inline-flex' : 'none';
             }
 
-            updateContextBar() {
+            async updateContextBar(instantOnly = false) {
                 let charCount = 0;
                 this.dom.chatBox.querySelectorAll('.message-wrapper, .sys-msg-context').forEach(w => {
                     charCount += (w.dataset.rawText || w.textContent || "").length;
                 });
                 
-                const percentage = Math.min(100, (charCount / CONFIG.MAX_CONTEXT_CHARS) * 100);
+                const session = this.state.session;
+                let tokenInfo = null;
+
+                // 1. Prüfe synchrone Eigenschaften der Prompt API (tokensSoFar, maxTokens)
+                if (session && typeof session.tokensSoFar === 'number' && typeof session.maxTokens === 'number') {
+                    tokenInfo = {
+                        current: session.tokensSoFar,
+                        max: session.maxTokens,
+                        source: 'session_props'
+                    };
+                }
+
+                // 2. Asynchrones Token-Counting via countPromptTokens (debounced)
+                if (!tokenInfo && !instantOnly && session && typeof session.countPromptTokens === 'function') {
+                    if (this._tokenCountTimer) clearTimeout(this._tokenCountTimer);
+                    this._tokenCountTimer = setTimeout(async () => {
+                        try {
+                            let fullChatText = "";
+                            this.dom.chatBox.querySelectorAll('.message-wrapper, .sys-msg-context').forEach(w => {
+                                fullChatText += (w.dataset.rawText || w.textContent || "") + "\n\n";
+                            });
+                            
+                            const measured = await session.countPromptTokens(fullChatText);
+                            const max = session.maxTokens || CONFIG.DEFAULT_MAX_TOKENS;
+                            this.applyContextTelemetry({
+                                current: measured,
+                                max: max,
+                                source: 'count_api'
+                            }, charCount);
+                        } catch (err) {
+                            this.debug('WARN', 'countPromptTokens Fehler', err.message);
+                        }
+                    }, 250);
+                }
+
+                // Sofortige synchrone Aktualisierung
+                this.applyContextTelemetry(tokenInfo, charCount);
+            }
+
+            applyContextTelemetry(tokenInfo, charCount) {
+                let percentage = 0;
+                let tooltip = "";
+                let badgeText = "";
+
+                if (tokenInfo && tokenInfo.max > 0) {
+                    percentage = Math.min(100, (tokenInfo.current / tokenInfo.max) * 100);
+                    const roundedPct = Math.round(percentage);
+                    tooltip = `Kontext: ${tokenInfo.current} / ${tokenInfo.max} Tokens (${roundedPct}%) [Prompt API ${tokenInfo.source === 'session_props' ? 'Echtzeit' : 'Messung'}]`;
+                    badgeText = `📊 ${tokenInfo.current} / ${tokenInfo.max} Tok (${roundedPct}%)`;
+                } else {
+                    percentage = Math.min(100, (charCount / CONFIG.MAX_CONTEXT_CHARS) * 100);
+                    const roundedPct = Math.round(percentage);
+                    tooltip = `Kontext: ca. ${charCount} / ${CONFIG.MAX_CONTEXT_CHARS} Zeichen (${roundedPct}%) [Heuristik]`;
+                    badgeText = `📊 ~${charCount} Zch (${roundedPct}%)`;
+                }
+
                 this.dom.contextFill.style.width = percentage + '%';
-                this.dom.contextFill.style.backgroundColor = percentage > 85 ? '#d32f2f' : percentage > 65 ? '#fbc02d' : '#4caf50'; 
-                
-                const roundedPct = Math.round(percentage);
-                this.dom.contextContainer.title = `Gedächtnisauslastung: ca. ${charCount} / ${CONFIG.MAX_CONTEXT_CHARS} Zeichen (${roundedPct}%)`;
-                
+                this.dom.contextFill.style.backgroundColor = percentage > 85 ? '#d32f2f' : percentage > 65 ? '#fbc02d' : '#4caf50';
+                this.dom.contextContainer.title = tooltip;
+
+                if (this.dom.tokenBadge) {
+                    this.dom.tokenBadge.textContent = badgeText;
+                    this.dom.tokenBadge.style.display = 'inline-flex';
+                    this.dom.tokenBadge.title = tooltip;
+                }
+
                 if (this.dom.compressBtn) {
                     this.dom.compressBtn.style.display = percentage > 65 ? 'flex' : 'none';
                 }
@@ -857,7 +919,7 @@
                             targetNode.innerHTML = this.parseMarkdown(fullResponse); 
                             targetNode.closest('.message-wrapper').dataset.rawText = fullResponse;
                             this.scrollToBottom();
-                            this.updateContextBar();
+                            this.updateContextBar(true);
                             updateScheduled = false;
                         });
                     }
@@ -866,7 +928,7 @@
                 targetNode.innerHTML = this.parseMarkdown(fullResponse);
                 targetNode.closest('.message-wrapper').dataset.rawText = fullResponse;
                 this.scrollToBottom();
-                this.updateContextBar();
+                this.updateContextBar(false);
             }
 
             // ==========================================
