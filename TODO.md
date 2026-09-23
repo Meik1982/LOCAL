@@ -42,7 +42,18 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
 - [x] **Codesandbox-Erweiterung (Reset & Toggle):**
   Möglichkeit, geöffnete Sandboxes jederzeit mit `⏹ Schließen` einzuklappen und zu entladen (`srcdoc = ''`).
 - [x] **Automatisierte Testsuite & Validierungs-Harness (`tests/`):**
-  Headless Test-Suite mit Node.js built-in Test-Runner für Markdown-Sanitization, XSS-Schutz, Syntax-Highlighting und Roundtrip-Export/Import (`npm test` und `tests/run_tests.sh`).
+  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 20/20 Tests grün) für:
+  - Markdown-Sanitization, XSS-Schutz & Token-Kollisionssicherheit
+  - Syntax-Highlighting & HTML-Entity Immunität
+  - Roundtrip Multi-Turn Export/Import & Kontext-Slicing (SAFE_INIT_CHARS)
+  - Synchrone & asynchrone Token-Zählung mit Heuristik-Fallback
+  - Systemdiagnose-Matrix (NO_FLAGS, NEEDS_DOWNLOAD, PERF_OR_STORAGE_BLOCKED, READY via readily/available, NON_CHROMIUM)
+  - Versions-Konsistenz (package.json, CONFIG, DOM-Badges)
+  - Webseiten-Extraktion (XSS-Schutz, Junk-Tag Stripping, 3.500-Zeichen-Limit)
+  - URL-Erkennung & sicheres Proxy-Encoding (Parameter-Pollution-Schutz)
+  - Auto-Titel-Generierung & LocalStorage-Robustheit bei korruptem JSON
+  - Prompt-Deduplizierung bei Regenerierung (`regenerating-skip`)
+  - Statisches Sicherheits-Audit: Strikte Sandbox-Isolation (`sandbox="allow-scripts"` ohne `allow-same-origin`)
 - [x] **Cross-Platform Hotkey Support:**
   Unterstützung von `Cmd` (MetaKey) für macOS bei allen Tastenkombinationen (`Cmd+D`, `Cmd+B`, `Cmd+S`, `Cmd+O`, `Cmd+L`, `Cmd+M`).
 - [x] **Lückenlose Dokumentation:**

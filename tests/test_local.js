@@ -274,6 +274,56 @@ const appMock = {
             diagnosisState,
             actionGuide
         };
+    },
+    cleanWebpageHtml(html) {
+        if (!html) return "";
+        let cleaned = html.replace(/<(script|style|nav|header|footer|iframe|noscript|svg)\b[\s\S]*?<\/\1>/gi, '');
+        cleaned = cleaned.replace(/<[^>]+>/g, ' ');
+        cleaned = cleaned
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#039;/g, "'")
+            .replace(/\s+/g, ' ')
+            .trim();
+        return cleaned.length > this.CONFIG.MAX_WEBPAGE_CHARS 
+            ? cleaned.substring(0, this.CONFIG.MAX_WEBPAGE_CHARS) + "\n... [Gekürzt]" 
+            : cleaned;
+    },
+    extractUrls(text) {
+        return text.match(/(https?:\/\/[^\s]+)/g) || [];
+    },
+    formatProxyUrl(proxyPrefix, url) {
+        return `${proxyPrefix}${encodeURIComponent(url)}`;
+    },
+    generateSessionTitle(rawText) {
+        const raw = (rawText || "").trim().replace(/\s+/g, ' ');
+        return raw.length > 32 ? raw.substring(0, 32) + "..." : (raw || "Neuer Chat");
+    },
+    parseSessionsFromStorage(storageStr) {
+        try {
+            if (!storageStr) return [];
+            const parsed = JSON.parse(storageStr);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    },
+    filterHistoryForConnect(wrappers, maxChars = this.CONFIG.SAFE_INIT_CHARS) {
+        const validWrappers = wrappers.filter(w => !w.isRegeneratingSkip);
+        let historyText = "";
+        let currentLength = 0;
+        for (let i = validWrappers.length - 1; i >= 0; i--) {
+            const role = validWrappers[i].role === 'user' ? "User" : "KI";
+            const chunk = `${role}: ${validWrappers[i].rawText}\n\n`;
+            if (currentLength + chunk.length > maxChars) {
+                break;
+            }
+            historyText = chunk + historyText;
+            currentLength += chunk.length;
+        }
+        return historyText;
     }
 };
 
@@ -494,6 +544,112 @@ test('15. Versions-Konsistenz: package.json, CONFIG und DOM-Badges', () => {
     assert.ok(htmlSource.includes(`v${expectedVer}`), `HTML muss 'v${expectedVer}' Badge enthalten`);
     assert.ok(htmlSource.includes(`id="app-version-badge"`), 'Header muss #app-version-badge besitzen');
     assert.ok(htmlSource.includes(`class="sidebar-footer"`), 'Sidebar muss .sidebar-footer besitzen');
+});
+
+test('16. Webseiten-Extraktion: Filterung von Script/Junk-Tags und Längenbegrenzung', () => {
+    const rawHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>body { font-size: 14px; }</style>
+            <script>alert("evil malicious script");</script>
+        </head>
+        <body>
+            <header><nav><a href="/">Menü Navigation</a></nav></header>
+            <main>
+                <h1>Hauptartikel Überschrift</h1>
+                <p>Das ist der echte Inhalt des Artikels, der für die KI bestimmt ist.</p>
+                <iframe src="https://evil.com"></iframe>
+                <noscript>JavaScript erforderlich</noscript>
+                <svg><circle cx="50" cy="50" r="40" /></svg>
+            </main>
+            <footer>Copyright 2026 Beispiel GmbH</footer>
+        </body>
+        </html>
+    `;
+
+    const cleaned = appMock.cleanWebpageHtml(rawHtml);
+    assert.doesNotMatch(cleaned, /alert\("evil malicious script"\)/, 'Script-Inhalte müssen restlos entfernt werden');
+    assert.doesNotMatch(cleaned, /body \{ font-size/, 'Style-Inhalte müssen entfernt werden');
+    assert.doesNotMatch(cleaned, /Menü Navigation/, 'Nav- und Header-Inhalte müssen entfernt werden');
+    assert.doesNotMatch(cleaned, /Copyright 2026/, 'Footer-Inhalte müssen entfernt werden');
+    assert.doesNotMatch(cleaned, /evil\.com/, 'Iframe-Inhalte müssen entfernt werden');
+    assert.match(cleaned, /Hauptartikel Überschrift/, 'Echter Artikel-Titel muss erhalten bleiben');
+    assert.match(cleaned, /echte Inhalt des Artikels/, 'Echter Absatztext muss erhalten bleiben');
+
+    // Prüfe Längenbegrenzung auf CONFIG.MAX_WEBPAGE_CHARS (3500)
+    const longHtml = `<p>${'A'.repeat(5000)}</p>`;
+    const truncated = appMock.cleanWebpageHtml(longHtml);
+    assert.equal(truncated.length, appMock.CONFIG.MAX_WEBPAGE_CHARS + "\n... [Gekürzt]".length);
+    assert.ok(truncated.endsWith("\n... [Gekürzt]"));
+});
+
+test('17. URL-Erkennung & sicheres Proxy-Encoding', () => {
+    const promptWithUrl = 'Lies bitte https://example.com:8443/docs/api?q=test%20wert&filter=active#details durch und fasse es zusammen.';
+    const urls = appMock.extractUrls(promptWithUrl);
+    
+    assert.equal(urls.length, 1);
+    assert.equal(urls[0], 'https://example.com:8443/docs/api?q=test%20wert&filter=active#details');
+
+    const proxyPrefix = 'https://api.allorigins.win/get?url=';
+    const proxyUrl = appMock.formatProxyUrl(proxyPrefix, urls[0]);
+
+    // Das Ziel-URL-Query-String muss encodiert sein, damit der Proxy-Request nicht verfälscht wird
+    assert.ok(proxyUrl.startsWith(proxyPrefix));
+    assert.ok(proxyUrl.includes(encodeURIComponent('q=test%20wert&filter=active#details')));
+    assert.doesNotMatch(proxyUrl.slice(proxyPrefix.length), /[?#]/, 'Im encodierten Teil dürfen keine unmaskierten ? oder # stehen');
+});
+
+test('18. Session-Titel-Generierung & robuster LocalStorage-Fallback', () => {
+    // 18a. Auto-Titel Kürzung bei langen Prompts (> 32 Zeichen)
+    const longPrompt = 'Kannst du mir bitte ein vollständiges C-Programm für einen Ringpuffer schreiben?';
+    const titleLong = appMock.generateSessionTitle(longPrompt);
+    assert.equal(titleLong, 'Kannst du mir bitte ein vollstän...');
+    assert.equal(titleLong.length, 35); // 32 chars + '...'
+
+    // 18b. Fallback bei leerer/whitespace Eingabe
+    assert.equal(appMock.generateSessionTitle('   \n\t  '), 'Neuer Chat');
+    assert.equal(appMock.generateSessionTitle(''), 'Neuer Chat');
+
+    // 18c. Robuster Fallback bei korruptem JSON im Storage
+    const corruptedJson = '{"id": 123, "title": "Fehler';
+    const safeSessions = appMock.parseSessionsFromStorage(corruptedJson);
+    assert.deepEqual(safeSessions, [], 'Korruptes JSON muss ohne Exception als leeres Array initialisiert werden');
+
+    // 18d. Gültige Session-Liste
+    const validJson = JSON.stringify([{ id: '1', title: 'Test Chat', data: 'data' }]);
+    const parsedSessions = appMock.parseSessionsFromStorage(validJson);
+    assert.equal(parsedSessions.length, 1);
+    assert.equal(parsedSessions[0].title, 'Test Chat');
+
+    // 18e. Valides JSON, aber kein Array
+    const objectJson = JSON.stringify({ not: 'an array' });
+    assert.deepEqual(appMock.parseSessionsFromStorage(objectJson), []);
+});
+
+test('19. Prompt-Historien-Filterung bei Regenerierung (regenerating-skip)', () => {
+    const wrappers = [
+        { role: 'user', rawText: 'Erster Prompt', isRegeneratingSkip: false },
+        { role: 'ai', rawText: 'Alte fehlerhafte Antwort', isRegeneratingSkip: true },
+        { role: 'user', rawText: 'Zweiter Prompt', isRegeneratingSkip: false }
+    ];
+
+    const history = appMock.filterHistoryForConnect(wrappers, 9000);
+    assert.match(history, /User: Erster Prompt/);
+    assert.match(history, /User: Zweiter Prompt/);
+    assert.doesNotMatch(history, /Alte fehlerhafte Antwort/, 'Elemente mit regenerating-skip dürfen nicht in den neuen Prompt gelangen');
+});
+
+test('20. Statisches Sicherheits-Audit: Strikte Sandbox-Isolation im Quellcode', () => {
+    // 20a. Überprüfe die Sandbox-Konfiguration aller iframes im HTML
+    assert.match(htmlSource, /sandbox\s*=\s*['"]allow-scripts['"]/, 'iframe Sandbox muss strikt auf allow-scripts beschränkt sein');
+    
+    // 20b. Niemals allow-same-origin zusammen mit allow-scripts (XSS Escape Risiko für LocalStorage)
+    assert.doesNotMatch(htmlSource, /allow-same-origin/, 'allow-same-origin darf unter keinen Umständen im Quellcode vorhanden sein');
+
+    // 20c. Keine gefährlichen Inline-JavaScript Pseudo-Protokolle
+    assert.doesNotMatch(htmlSource, /href\s*=\s*["']javascript:/i, 'Keine inline javascript: URLs erlaubt');
+    assert.doesNotMatch(htmlSource, /src\s*=\s*["']javascript:/i, 'Keine inline javascript: Quellen erlaubt');
 });
 
 
