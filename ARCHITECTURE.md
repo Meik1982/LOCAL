@@ -68,6 +68,19 @@ sequenceDiagram
 ### Frame-gebündeltes Streaming
 Um UI-Freezes und *Layout-Thrashing* bei hochfrequenten Token-Streams zu verhindern, werden eintreffende Chunks akkumuliert und über `requestAnimationFrame` gebündelt in das DOM gerendert.
 
+### 3.1 System-Diagnose & Troubleshooting State Machine
+Schlägt `connectToAI()` fehl oder befindet sich das Modell nicht im Zustand `'readily'`, initiiert `checkSystemEnvironment()` eine deterministische Diagnose:
+
+| State | Kriterium | Ursache & Automatische Handlungsanleitung |
+| :--- | :--- | :--- |
+| `NON_CHROMIUM` | `!isChromium` | Browser ist Firefox/Safari. Verweis auf Chrome / Chrome Canary. |
+| `NO_FLAGS` | `!window.LanguageModel && !window.ai` | Prompt API Flag deaktiviert. Anleitung für `chrome://flags/#prompt-api-for-gemini-nano` und Relaunch. |
+| `NEEDS_DOWNLOAD` | `availability === 'after-download' \|\| 'downloadable'` | Modell (~1,7 GB) fehlt. Anleitung für `chrome://components` (Optimization Guide Update). |
+| `PERF_OR_STORAGE_BLOCKED` | `availability === 'no' \|\| 'unavailable'` | Hardware-/Speicher-Prüfung schlägt fehl (besonders unter Windows). Anleitung für `chrome://flags/#optimization-guide-on-device-model` -> `Enabled BypassPerfRequirement`, Prüfung auf mind. 22 GB auf Laufwerk C:, Deaktivierung getakteter Verbindungen. |
+| `READY` | `availability === 'readily'` | Modell einsatzbereit. |
+
+Die Diagnose wird als interaktive Karte direkt im Chat eingeblendet und enthält einen One-Click Re-Test-Button (`🔄 Erneut prüfen`) sowie die Verknüpfung zum Debug-Terminal.
+
 ---
 
 ## 4. Smart Context Compression (Sliding-Window)

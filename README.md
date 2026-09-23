@@ -17,6 +17,7 @@ Ein vollständig lokaler, offline-fähiger KI-Chat-Client (**Zero-Dependency**),
 - **Datenschutz & Proxy-Steuerung:** Web-URL-Analysen laufen standardmäßig über einen konfigurierbaren CORS-Proxy und können im Persona-/Einstellungsmenü mit einem Klick komplett deaktiviert werden.
 - **Sprachsteuerung:** Natives Speech-to-Text (Mikrofon) und intelligentes Text-to-Speech (Vorlesen mit automatischer Sprachauswahl DE/EN).
 - **Kontext-Injektion:** Lokale Text- und Code-Dateien (TXT, MD, CSV, JSON, LOG, YAML, JS, HTML) bequem per Drag & Drop in den Prompt einspeisen.
+- **Automatisierte Systemdiagnose & Troubleshooting:** Erkennt fehlende Flags, ausstehende Modell-Downloads oder Hardware-Restriktionen (z. B. unter Windows) automatisch und zeigt eine interaktive Schritt-für-Schritt-Anleitung mit One-Click Re-Test direkt im Chat an.
 - **Integriertes Debug-Terminal:** Echtzeit-Error-Handling (`window.onerror`, `unhandledrejection`), Hotkey `Strg+D` / `Cmd+D` und Export als `.log`.
 
 ---

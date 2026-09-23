@@ -225,6 +225,87 @@
             padding: 10px 14px; border-radius: 6px; white-space: pre-wrap; font-family: 'Consolas', monospace;
             width: 92%; border: 1px solid #383838;
         }
+
+        /* System Diagnostic Card */
+        .system-diagnostic-card {
+            background-color: #1e1e1e;
+            border: 1px solid #d32f2f;
+            border-left: 5px solid #d32f2f;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin: 12px auto;
+            max-width: 92%;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            font-size: 0.9em;
+            color: #e0e0e0;
+            text-align: left;
+        }
+        .system-diagnostic-card.status-warn {
+            border-color: #fbc02d;
+            border-left-color: #fbc02d;
+        }
+        .system-diagnostic-card.status-ok {
+            border-color: #4caf50;
+            border-left-color: #4caf50;
+        }
+        .diag-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 700;
+            font-size: 1.05em;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+        }
+        .diag-body { line-height: 1.5; }
+        .diag-check-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin: 6px 0;
+        }
+        .diag-check-icon { font-weight: bold; flex-shrink: 0; }
+        .diag-check-pass { color: #4caf50; }
+        .diag-check-warn { color: #fbc02d; }
+        .diag-check-fail { color: #e57373; }
+        .diag-guide-box {
+            background: #141414;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        .diag-guide-box ol { margin: 6px 0 6px 20px; padding: 0; }
+        .diag-guide-box code {
+            background: #252525;
+            color: #90caf9;
+            padding: 2px 6px;
+            border-radius: 3px;
+            user-select: all;
+            font-family: 'Consolas', monospace;
+        }
+        .diag-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 8px;
+            border-top: 1px solid #2d2d2d;
+        }
+        .diag-btn {
+            background: #2a2a2a;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .diag-btn:hover { background: #3a3a3a; border-color: #666; }
+        .diag-btn-primary { background: var(--accent-primary); border-color: var(--accent-primary); }
+        .diag-btn-primary:hover { background: var(--accent-hover); }
         
         /* Message Action Buttons */
         .msg-actions { display: flex; gap: 10px; margin-top: 5px; opacity: 0; transition: opacity 0.15s; }
@@ -323,6 +404,9 @@
                     <label><input type="checkbox" id="cfg-proxy-allow" checked> Webseiten-Abruf via CORS-Proxy erlauben</label>
                     <input type="text" id="cfg-proxy-url" placeholder="CORS-Proxy URL Präfix" value="https://api.allorigins.win/get?url=">
                 </div>
+                <div class="settings-row" style="margin-top: 6px; justify-content: flex-start;">
+                    <button id="run-diag-btn" class="action-btn" style="border: 1px solid #555; padding: 4px 10px; color: #90caf9; border-radius: 4px; cursor: pointer;">🔍 Systemdiagnose & Troubleshooting starten</button>
+                </div>
             </div>
             
             <div id="chat-box"></div>
@@ -381,6 +465,7 @@
                     settingsPanel: document.getElementById('settings-panel'),
                     cfgProxyAllow: document.getElementById('cfg-proxy-allow'),
                     cfgProxyUrl: document.getElementById('cfg-proxy-url'),
+                    runDiagBtn: document.getElementById('run-diag-btn'),
                     apiStatusBadge: document.getElementById('api-status-badge'),
                     tokenBadge: document.getElementById('token-counter-badge'),
                     importFile: document.getElementById('import-file'),
@@ -487,7 +572,7 @@
             }
 
             // ==========================================
-            // CHROME PROMPT API ADAPTER
+            // CHROME PROMPT API ADAPTER & SYSTEM DIAGNOSIS
             // ==========================================
             getLanguageModelAPI() {
                 if (typeof window.LanguageModel !== 'undefined') {
@@ -514,6 +599,212 @@
                 if (!this.dom.apiStatusBadge) return;
                 this.dom.apiStatusBadge.className = 'header-status-badge ' + (status === 'ok' ? 'status-ok' : status === 'warn' ? 'status-warn' : 'status-err');
                 this.dom.apiStatusBadge.textContent = label;
+            }
+
+            evaluateDiagnosis(env) {
+                const ua = env.userAgent || '';
+                let os = 'Unbekannt';
+                if (/Windows/i.test(ua)) os = 'Windows';
+                else if (/Macintosh|Mac OS/i.test(ua)) os = 'macOS';
+                else if (/Linux/i.test(ua)) os = 'Linux';
+                else if (/Android/i.test(ua)) os = 'Android';
+
+                const isChromium = !!(env.hasChromeGlobal || /Chrome|Chromium|Edg/i.test(ua));
+                const isChrome = /Chrome/i.test(ua) && !/Edg|OPR|Brave/i.test(ua);
+                let browserName = 'Unbekannter Browser';
+                if (isChrome) browserName = 'Google Chrome';
+                else if (/Edg/i.test(ua)) browserName = 'Microsoft Edge';
+                else if (/Brave/i.test(ua)) browserName = 'Brave';
+                else if (/Firefox/i.test(ua)) browserName = 'Firefox';
+                else if (/Safari/i.test(ua)) browserName = 'Safari';
+
+                const hasApi = !!(env.hasWindowLanguageModel || env.hasWindowAiLanguageModel);
+                const activeInterface = env.hasWindowLanguageModel 
+                    ? 'window.LanguageModel (WICG Standard)' 
+                    : (env.hasWindowAiLanguageModel ? 'window.ai.languageModel (Early Draft)' : null);
+
+                const avail = env.availability || null;
+                let diagnosisState = 'UNKNOWN';
+                let actionGuide = [];
+
+                if (!isChromium) {
+                    diagnosisState = 'NON_CHROMIUM';
+                    actionGuide = [
+                        `Du verwendest aktuell ${browserName}. Die lokale Gemini Nano Prompt API wird derzeit nativ nur in Chromium-basierten Browsern (vorrangig Google Chrome / Chrome Canary) unterstützt.`,
+                        'Bitte öffne die Anwendung in Google Chrome (ab Version 128+) oder Chrome Canary.'
+                    ];
+                } else if (!hasApi) {
+                    diagnosisState = 'NO_FLAGS';
+                    actionGuide = [
+                        'Die Prompt API ist im Browser noch nicht aktiviert.',
+                        '1. Öffne einen neuen Tab: <code>chrome://flags/#prompt-api-for-gemini-nano</code> und setze auf <b>Enabled</b>.',
+                        '2. Öffne <code>chrome://flags/#optimization-guide-on-device-model</code> und setze auf <b>Enabled BypassPerfRequirement</b>.',
+                        '3. Starte Chrome komplett neu über die Schaltfläche <b>Relaunch</b> ganz unten.'
+                    ];
+                } else if (avail === 'after-download' || avail === 'downloadable') {
+                    diagnosisState = 'NEEDS_DOWNLOAD';
+                    actionGuide = [
+                        'Die Prompt API ist aktiv, aber das lokale KI-Modell (~1,7 GB) wurde noch nicht auf dein Endgerät heruntergeladen.',
+                        '1. Öffne in Chrome: <code>chrome://components</code>',
+                        '2. Suche nach der Komponente <b>Optimization Guide On Device Model</b>.',
+                        '3. Klicke auf <b>Nach Updates suchen</b> (Check for update).',
+                        '4. Warte, bis der Download abgeschlossen ist (Status wechselt von Version 0.0.0.0 auf eine Versionsnummer wie 2024.x oder 2025.x).'
+                    ];
+                } else if (avail === 'no' || avail === 'unavailable') {
+                    diagnosisState = 'PERF_OR_STORAGE_BLOCKED';
+                    actionGuide = [
+                        `Das System meldet Status "${avail}". Auf ${os}-Systemen greifen hier typischerweise Hardware-Filter oder Speicherbegrenzungen:`,
+                        '1. Öffne <code>chrome://flags/#optimization-guide-on-device-model</code> und wähle zwingend <b>Enabled BypassPerfRequirement</b> (nicht nur "Enabled").',
+                        os === 'Windows' 
+                            ? '2. Stelle sicher, dass auf Laufwerk <code>C:</code> mindestens <b>20–22 GB freier Speicherplatz</b> verfügbar sind.' 
+                            : '2. Stelle sicher, dass auf deiner Systempartition mindestens 20 GB freier Speicherplatz vorhanden sind.',
+                        '3. Starte Chrome neu (Relaunch) und stoße in <code>chrome://components</code> das Update für <b>Optimization Guide On Device Model</b> an.',
+                        os === 'Windows' ? '4. Falls du im WLAN bist: Prüfe, ob in den Windows-Netzwerkeinstellungen "Getaktete Verbindung" (Metered Connection) deaktiviert ist.' : ''
+                    ].filter(Boolean);
+                } else if (avail === 'readily') {
+                    diagnosisState = 'READY';
+                    actionGuide = ['Alle Systemvoraussetzungen sind erfüllt. Gemini Nano ist einsatzbereit.'];
+                } else {
+                    diagnosisState = 'API_ERROR';
+                    actionGuide = [
+                        `Unerwarteter API-Status: "${avail}".`,
+                        'Prüfe die Browserkonsole (F12) und das Debug-Terminal (Strg+D / Cmd+D).'
+                    ];
+                }
+
+                return {
+                    os,
+                    browser: { name: browserName, isChromium, isChrome },
+                    hardware: {
+                        ramGB: env.deviceMemory || null,
+                        cores: env.hardwareConcurrency || null,
+                        storageQuotaMB: env.storageQuotaMB || null
+                    },
+                    api: { hasApi, activeInterface },
+                    model: { availability: avail, error: env.error || null },
+                    diagnosisState,
+                    actionGuide
+                };
+            }
+
+            async checkSystemEnvironment() {
+                let storageQuotaMB = null;
+                if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+                    try {
+                        const est = await navigator.storage.estimate();
+                        if (est && est.quota) storageQuotaMB = Math.round(est.quota / (1024 * 1024));
+                    } catch (e) {}
+                }
+
+                const api = this.getLanguageModelAPI();
+                let avail = null;
+                let error = null;
+                if (api) {
+                    try {
+                        avail = await this.checkAvailability(api, {
+                            expectedInputs: [{ type: 'text', languages: ['en', 'de'] }],
+                            expectedOutputs: [{ type: 'text', languages: ['en', 'de'] }]
+                        });
+                    } catch (err) {
+                        avail = 'error';
+                        error = err.message;
+                    }
+                }
+
+                const env = {
+                    userAgent: navigator.userAgent,
+                    hasChromeGlobal: !!window.chrome,
+                    hasWindowLanguageModel: typeof window.LanguageModel !== 'undefined',
+                    hasWindowAiLanguageModel: !!(window.ai && window.ai.languageModel),
+                    availability: avail,
+                    error,
+                    deviceMemory: navigator.deviceMemory,
+                    hardwareConcurrency: navigator.hardwareConcurrency,
+                    storageQuotaMB
+                };
+
+                const diag = this.evaluateDiagnosis(env);
+                this.debug('INFO', `Systemdiagnose: [${diag.diagnosisState}] OS=${diag.os}, Browser=${diag.browser.name}, Avail=${diag.model.availability}`);
+                return diag;
+            }
+
+            renderDiagnosticCard(diag) {
+                const existing = this.dom.chatBox.querySelector('.system-diagnostic-card');
+                if (existing) existing.remove();
+
+                const card = document.createElement('div');
+                const isOk = diag.diagnosisState === 'READY';
+                const isWarn = diag.diagnosisState === 'NEEDS_DOWNLOAD';
+                card.className = `system-diagnostic-card ${isOk ? 'status-ok' : isWarn ? 'status-warn' : ''}`;
+
+                let stateBadge = "🔴 Offline / Konfiguration nötig";
+                if (isOk) {
+                    stateBadge = "🟢 Gemini Nano bereit";
+                } else if (isWarn) {
+                    stateBadge = "🟡 Download ausstehend";
+                }
+
+                const checkApiClass = diag.api.hasApi ? 'diag-check-pass' : 'diag-check-fail';
+                const checkApiIcon = diag.api.hasApi ? '✓' : '✗';
+                const checkApiText = diag.api.hasApi 
+                    ? `Prompt API erkannt (${diag.api.activeInterface})` 
+                    : 'Prompt API nicht aktiv (window.LanguageModel ist undefined)';
+
+                let checkModelClass = 'diag-check-fail';
+                let checkModelIcon = '✗';
+                let checkModelText = `Modell-Verfügbarkeit: "${diag.model.availability || 'nicht abrufbar'}"`;
+                if (diag.model.availability === 'readily') {
+                    checkModelClass = 'diag-check-pass';
+                    checkModelIcon = '✓';
+                    checkModelText = 'Gemini Nano Modell geladen und einsatzbereit';
+                } else if (diag.model.availability === 'after-download' || diag.model.availability === 'downloadable') {
+                    checkModelClass = 'diag-check-warn';
+                    checkModelIcon = '⏳';
+                    checkModelText = 'Download ausstehend (Optimization Guide Komponente in Chrome)';
+                }
+
+                const guideHtml = diag.actionGuide.map(step => `<li>${step}</li>`).join('');
+
+                card.innerHTML = `
+                    <div class="diag-header">
+                        <span>🔍 System-Diagnose (${diag.os} / ${diag.browser.name})</span>
+                        <span>${stateBadge}</span>
+                    </div>
+                    <div class="diag-body">
+                        <div class="diag-check-item">
+                            <span class="diag-check-icon ${checkApiClass}">${checkApiIcon}</span>
+                            <span>${checkApiText}</span>
+                        </div>
+                        <div class="diag-check-item">
+                            <span class="diag-check-icon ${checkModelClass}">${checkModelIcon}</span>
+                            <span>${checkModelText}</span>
+                        </div>
+                        ${diag.hardware.ramGB ? `
+                        <div class="diag-check-item">
+                            <span class="diag-check-icon diag-check-pass">ℹ️</span>
+                            <span>Erkannte Hardware: ca. ${diag.hardware.ramGB} GB RAM, ${diag.hardware.cores || '?'} CPU-Threads</span>
+                        </div>` : ''}
+                        <div class="diag-guide-box">
+                            <b>Empfohlene Schritte zur Fehlerbehebung:</b>
+                            <ol>${guideHtml}</ol>
+                        </div>
+                    </div>
+                    <div class="diag-actions">
+                        <button class="diag-btn diag-btn-primary" id="diag-btn-retry">🔄 Erneut prüfen</button>
+                        <button class="diag-btn" id="diag-btn-terminal">🛠️ Debug-Logs öffnen</button>
+                    </div>
+                `;
+
+                card.querySelector('#diag-btn-retry').onclick = async () => {
+                    card.remove();
+                    await this.connectToAI(true);
+                };
+                card.querySelector('#diag-btn-terminal').onclick = () => {
+                    this.toggleDebugTerminal();
+                };
+
+                this.dom.chatBox.appendChild(card);
+                this.scrollToBottom();
             }
 
             async connectToAI(withHistory = false) {
@@ -570,7 +861,10 @@
                     this.debug('INFO', `API Availability: ${avail}`);
 
                     if (avail === 'unavailable' || avail === 'no') {
-                        throw new Error(`Modell meldet Status "${avail}". Modell in Chrome heruntergeladen?`);
+                        throw new Error(`Modell meldet Status "${avail}". Hardware-Anforderungen oder Modell-Download unvollständig.`);
+                    }
+                    if (avail === 'after-download' || avail === 'downloadable') {
+                        throw new Error(`Modell meldet Status "${avail}". Der Download des Gemini Nano Modells in Chrome steht noch aus.`);
                     }
 
                     // Erstelle Sitzung mit robustem Fallback bei unbekannten Parametern
@@ -586,11 +880,22 @@
                     this.setUIState(true);
                     this.updateApiBadge('ok', 'Gemini Nano bereit');
                     this.updateContextBar();
+
+                    // Bestehende Fehler-Diagnosekarte entfernen
+                    const oldCard = this.dom.chatBox.querySelector('.system-diagnostic-card');
+                    if (oldCard) oldCard.remove();
                 } catch (error) {
                     this.debug('ERROR', 'Verbindungsfehler', error.message);
                     this.addSysMessage("Fehler beim Verbindungsaufbau: " + error.message);
                     this.dom.sendBtn.textContent = CONFIG.UI.BTN_ERROR;
                     this.updateApiBadge('err', 'KI Offline');
+
+                    try {
+                        const diag = await this.checkSystemEnvironment();
+                        this.renderDiagnosticCard(diag);
+                    } catch (diagErr) {
+                        this.debug('ERROR', 'Diagnose-Generierungsfehler', diagErr.message);
+                    }
                 }
             }
 
@@ -1331,6 +1636,22 @@
 
                 this.dom.cfgProxyAllow.addEventListener('change', () => this.saveSettings());
                 this.dom.cfgProxyUrl.addEventListener('change', () => this.saveSettings());
+
+                if (this.dom.runDiagBtn) {
+                    this.dom.runDiagBtn.addEventListener('click', async () => {
+                        const diag = await this.checkSystemEnvironment();
+                        this.renderDiagnosticCard(diag);
+                    });
+                }
+
+                if (this.dom.apiStatusBadge) {
+                    this.dom.apiStatusBadge.style.cursor = 'pointer';
+                    this.dom.apiStatusBadge.title = 'Klicken für System-Diagnose & Troubleshooting';
+                    this.dom.apiStatusBadge.addEventListener('click', async () => {
+                        const diag = await this.checkSystemEnvironment();
+                        this.renderDiagnosticCard(diag);
+                    });
+                }
 
                 document.getElementById('sidebar-new-btn').addEventListener('click', () => this.createNewSession());
                 document.getElementById('import-btn').addEventListener('click', () => this.dom.importFile.click());

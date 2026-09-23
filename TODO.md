@@ -49,33 +49,32 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   Korrektur des Dateinamens im `README.md` (`index.html` und Symlink `chat.html`), Hinzufügen von `ARCHITECTURE.md` und sauberen JSDoc-Kommentaren im Quelltext.
 - [x] **Echte Token-Zählung via Chrome Prompt API:**
   Zweistufige Telemetrie mit synchroner Abfrage von `tokensSoFar` / `maxTokens` und debounctem asynchronen `countPromptTokens()`. Direkte Visualisierung im Header-Badge (`📊 X / Y Tok (Z%)`) und robuster Zeichen-Heuristik-Fallback.
+- [x] **Automatisierte Systemdiagnose & Onboarding-Troubleshooter (Windows / macOS / Linux):**
+  Interaktive Diagnose-Engine (`checkSystemEnvironment()` / `evaluateDiagnosis()`):
+  - Automatische Identifikation des Ursachenzustands (`NO_FLAGS`, `NEEDS_DOWNLOAD`, `PERF_OR_STORAGE_BLOCKED`, `NON_CHROMIUM`, `READY`).
+  - Spezifische Handlungsanleitungen für Windows (Laufwerk C: Speicherplatz, `chrome://components` Optimization Guide Update, `Enabled BypassPerfRequirement`, Metered Connection).
+  - Interaktive Diagnose-Karte im Chat mit Checkliste, Re-Test-Button (`🔄 Erneut prüfen`) und Button zum Öffnen des Debug-Terminals.
+  - Diagnose per Klick auf die Status-Pille im Header oder über den Diagnose-Button im Persona-Panel jederzeit abrufbar.
+  - Vollständige Regressionstest-Abdeckung in `tests/test_local.js` (14/14 Tests grün).
 
 ---
 
 ## 3. Zukünftige Optimierungspotenziale (Backlog – nach Priorität sortiert)
 
-### Priorität 1 (Kritisch): Automatisierte Systemdiagnose & Onboarding-Troubleshooter
-- [ ] **Interaktive Diagnose-Engine (Windows / macOS / Linux):**
-  Automatischer Hardware- und API-Prüflauf beim Start (`checkSystemEnvironment()`):
-  - Prüfung der API-Präsenz (`window.LanguageModel` / `window.ai.languageModel`) mit gezieltem Hinweis auf `chrome://flags/#prompt-api-for-gemini-nano`.
-  - Erkennung des Modell-Downloadstatus (`readily`, `after-download`, `no`, `unavailable`).
-  - Spezifische Handlungsanweisungen bei Windows-Stolperfallen: Hinweis auf `chrome://components` (Optimization Guide On Device Model), `chrome://flags/#optimization-guide-on-device-model` (`Enabled BypassPerfRequirement`) und freien Festplattenspeicher (>22 GB auf C:).
-  - Interaktive Diagnose-Karte im Chat bei Verbindungsfehlern mit schrittweiser Checkliste und One-Click-Re-Test-Button.
-
-### Priorität 2 (Hoch): Offline PWA & Service Worker
+### Priorität 1 (Hoch): Offline PWA & Service Worker
 - [ ] **Installierbare Desktop-App (Progressive Web App):**
   Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching aller Assets (Icons, HTML, CSS, JS). Ermöglicht die Installation als vollwertige Desktop-App mit eigenem Fenster sowie den garantierten Start ohne Webserver oder Internetverbindung.
 
-### Priorität 3 (Mittel): Erweiterte Export-Formate (Markdown & JSON)
+### Priorität 2 (Mittel): Erweiterte Export-Formate (Markdown & JSON)
 - [ ] **Strukturierte Dokumenten-Exporte:**
   Export von Unterhaltungen wahlweise als:
   - **Markdown (`.md`):** Sauber formatierter Text mit echten Headings, Codeblöcken und Zitaten (ideal für Obsidian, Notion und GitHub).
   - **JSON (`.json`):** Maschinenlesbare Struktur mit Timestamps, Rollen (`user`, `assistant`, `system`) und Token-Statistiken für automatisierte Weiterverarbeitung.
 
-### Priorität 4 (Mittel): System-Prompt Presets (Persona-Vorlagen)
+### Priorität 3 (Mittel): System-Prompt Presets (Persona-Vorlagen)
 - [ ] **Vordefinierte Experten-Rollen im Persona-Panel:**
   Schnellwahl-Dropdown im Einstellungsmenü für kuratierte System-Prompts (z. B. „Code-Reviewer & Refactoring-Spezialist“, „Prüftechniker / Sicherheits-Auditor“, „Kritischer Sparringspartner“, „Präziser Übersetzer“).
 
-### Priorität 5 (Langfristig): Wasm / WebGPU Fallback (Hybrid-Engine)
+### Priorität 4 (Langfristig): Wasm / WebGPU Fallback (Hybrid-Engine)
 - [ ] **Plattformunabhängige In-Browser-KI via WebGPU:**
   Optionale Integration einer WebGPU/Wasm-Engine (z. B. WebLLM / transformers.js mit SmolLM oder Qwen) als automatischer Fallback für Browser ohne native Chrome Prompt API (Firefox, Safari, Chromium-Forks).

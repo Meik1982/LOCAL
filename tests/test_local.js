@@ -183,6 +183,91 @@ const appMock = {
         }
 
         return { percentage, roundedPct: Math.round(percentage), badgeText, tooltip };
+    },
+    evaluateDiagnosis(env) {
+        const ua = env.userAgent || '';
+        let os = 'Unbekannt';
+        if (/Windows/i.test(ua)) os = 'Windows';
+        else if (/Macintosh|Mac OS/i.test(ua)) os = 'macOS';
+        else if (/Linux/i.test(ua)) os = 'Linux';
+        else if (/Android/i.test(ua)) os = 'Android';
+
+        const isChromium = !!(env.hasChromeGlobal || /Chrome|Chromium|Edg/i.test(ua));
+        const isChrome = /Chrome/i.test(ua) && !/Edg|OPR|Brave/i.test(ua);
+        let browserName = 'Unbekannter Browser';
+        if (isChrome) browserName = 'Google Chrome';
+        else if (/Edg/i.test(ua)) browserName = 'Microsoft Edge';
+        else if (/Brave/i.test(ua)) browserName = 'Brave';
+        else if (/Firefox/i.test(ua)) browserName = 'Firefox';
+        else if (/Safari/i.test(ua)) browserName = 'Safari';
+
+        const hasApi = !!(env.hasWindowLanguageModel || env.hasWindowAiLanguageModel);
+        const activeInterface = env.hasWindowLanguageModel 
+            ? 'window.LanguageModel (WICG Standard)' 
+            : (env.hasWindowAiLanguageModel ? 'window.ai.languageModel (Early Draft)' : null);
+
+        const avail = env.availability || null;
+        let diagnosisState = 'UNKNOWN';
+        let actionGuide = [];
+
+        if (!isChromium) {
+            diagnosisState = 'NON_CHROMIUM';
+            actionGuide = [
+                `Du verwendest aktuell ${browserName}. Die lokale Gemini Nano Prompt API wird derzeit nativ nur in Chromium-basierten Browsern (vorrangig Google Chrome / Chrome Canary) unterstützt.`,
+                'Bitte öffne die Anwendung in Google Chrome (ab Version 128+) oder Chrome Canary.'
+            ];
+        } else if (!hasApi) {
+            diagnosisState = 'NO_FLAGS';
+            actionGuide = [
+                'Die Prompt API ist im Browser noch nicht aktiviert.',
+                '1. Öffne einen neuen Tab: <code>chrome://flags/#prompt-api-for-gemini-nano</code> und setze auf <b>Enabled</b>.',
+                '2. Öffne <code>chrome://flags/#optimization-guide-on-device-model</code> und setze auf <b>Enabled BypassPerfRequirement</b>.',
+                '3. Starte Chrome komplett neu über die Schaltfläche <b>Relaunch</b> ganz unten.'
+            ];
+        } else if (avail === 'after-download' || avail === 'downloadable') {
+            diagnosisState = 'NEEDS_DOWNLOAD';
+            actionGuide = [
+                'Die Prompt API ist aktiv, aber das lokale KI-Modell (~1,7 GB) wurde noch nicht auf dein Endgerät heruntergeladen.',
+                '1. Öffne in Chrome: <code>chrome://components</code>',
+                '2. Suche nach der Komponente <b>Optimization Guide On Device Model</b>.',
+                '3. Klicke auf <b>Nach Updates suchen</b> (Check for update).',
+                '4. Warte, bis der Download abgeschlossen ist (Status wechselt von Version 0.0.0.0 auf eine Versionsnummer wie 2024.x oder 2025.x).'
+            ];
+        } else if (avail === 'no' || avail === 'unavailable') {
+            diagnosisState = 'PERF_OR_STORAGE_BLOCKED';
+            actionGuide = [
+                `Das System meldet Status "${avail}". Auf ${os}-Systemen greifen hier typischerweise Hardware-Filter oder Speicherbegrenzungen:`,
+                '1. Öffne <code>chrome://flags/#optimization-guide-on-device-model</code> und wähle zwingend <b>Enabled BypassPerfRequirement</b> (nicht nur "Enabled").',
+                os === 'Windows' 
+                    ? '2. Stelle sicher, dass auf Laufwerk <code>C:</code> mindestens <b>20–22 GB freier Speicherplatz</b> verfügbar sind.' 
+                    : '2. Stelle sicher, dass auf deiner Systempartition mindestens 20 GB freier Speicherplatz vorhanden sind.',
+                '3. Starte Chrome neu (Relaunch) und stoße in <code>chrome://components</code> das Update für <b>Optimization Guide On Device Model</b> an.',
+                os === 'Windows' ? '4. Falls du im WLAN bist: Prüfe, ob in den Windows-Netzwerkeinstellungen "Getaktete Verbindung" (Metered Connection) deaktiviert ist.' : ''
+            ].filter(Boolean);
+        } else if (avail === 'readily') {
+            diagnosisState = 'READY';
+            actionGuide = ['Alle Systemvoraussetzungen sind erfüllt. Gemini Nano ist einsatzbereit.'];
+        } else {
+            diagnosisState = 'API_ERROR';
+            actionGuide = [
+                `Unerwarteter API-Status: "${avail}".`,
+                'Prüfe die Browserkonsole (F12) und das Debug-Terminal (Strg+D / Cmd+D).'
+            ];
+        }
+
+        return {
+            os,
+            browser: { name: browserName, isChromium, isChrome },
+            hardware: {
+                ramGB: env.deviceMemory || null,
+                cores: env.hardwareConcurrency || null,
+                storageQuotaMB: env.storageQuotaMB || null
+            },
+            api: { hasApi, activeInterface },
+            model: { availability: avail, error: env.error || null },
+            diagnosisState,
+            actionGuide
+        };
     }
 };
 
@@ -306,4 +391,77 @@ test('9. Token-Zählung Fallback auf Zeichen-Heuristik wenn keine Session aktiv'
     assert.equal(telemetry.badgeText, '📊 ~6000 Zch (50%)');
     assert.match(telemetry.tooltip, /Heuristik/);
 });
+
+test('10. Systemdiagnose: Erkennung fehlender Flags (NO_FLAGS) unter Windows', () => {
+    const env = {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        hasChromeGlobal: true,
+        hasWindowLanguageModel: false,
+        hasWindowAiLanguageModel: false,
+        availability: null
+    };
+    const diag = appMock.evaluateDiagnosis(env);
+    
+    assert.equal(diag.os, 'Windows');
+    assert.equal(diag.browser.name, 'Google Chrome');
+    assert.equal(diag.diagnosisState, 'NO_FLAGS');
+    assert.ok(diag.actionGuide.some(step => step.includes('chrome://flags/#prompt-api-for-gemini-nano')));
+});
+
+test('11. Systemdiagnose: Erkennung ausstehender Modell-Download (NEEDS_DOWNLOAD)', () => {
+    const env = {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36',
+        hasChromeGlobal: true,
+        hasWindowLanguageModel: true,
+        availability: 'after-download'
+    };
+    const diag = appMock.evaluateDiagnosis(env);
+    
+    assert.equal(diag.diagnosisState, 'NEEDS_DOWNLOAD');
+    assert.ok(diag.actionGuide.some(step => step.includes('chrome://components')));
+    assert.ok(diag.actionGuide.some(step => step.includes('Optimization Guide On Device Model')));
+});
+
+test('12. Systemdiagnose: Erkennung Performance/Storage-Sperre (PERF_OR_STORAGE_BLOCKED)', () => {
+    const env = {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36',
+        hasChromeGlobal: true,
+        hasWindowLanguageModel: true,
+        availability: 'no'
+    };
+    const diag = appMock.evaluateDiagnosis(env);
+    
+    assert.equal(diag.os, 'Windows');
+    assert.equal(diag.diagnosisState, 'PERF_OR_STORAGE_BLOCKED');
+    assert.ok(diag.actionGuide.some(step => step.includes('BypassPerfRequirement')));
+    assert.ok(diag.actionGuide.some(step => step.includes('C:')));
+});
+
+test('13. Systemdiagnose: Erfolgreiche Betriebsbereitschaft (READY)', () => {
+    const env = {
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/128.0.0.0 Safari/537.36',
+        hasChromeGlobal: true,
+        hasWindowLanguageModel: true,
+        availability: 'readily'
+    };
+    const diag = appMock.evaluateDiagnosis(env);
+    
+    assert.equal(diag.os, 'Linux');
+    assert.equal(diag.diagnosisState, 'READY');
+});
+
+test('14. Systemdiagnose: Nicht-Chromium Browser Erkennung (NON_CHROMIUM)', () => {
+    const env = {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0',
+        hasChromeGlobal: false,
+        hasWindowLanguageModel: false,
+        availability: null
+    };
+    const diag = appMock.evaluateDiagnosis(env);
+    
+    assert.equal(diag.browser.name, 'Firefox');
+    assert.equal(diag.diagnosisState, 'NON_CHROMIUM');
+    assert.ok(diag.actionGuide.some(step => step.includes('Google Chrome')));
+});
+
 
