@@ -55,7 +55,7 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   - Spezifische Handlungsanleitungen für Windows (Laufwerk C: Speicherplatz, `chrome://components` Optimization Guide Update, `Enabled BypassPerfRequirement`, Metered Connection).
   - Interaktive Diagnose-Karte im Chat mit Checkliste, Re-Test-Button (`🔄 Erneut prüfen`) und Button zum Öffnen des Debug-Terminals.
   - Diagnose per Klick auf die Status-Pille im Header oder über den Diagnose-Button im Persona-Panel jederzeit abrufbar.
-  - Vollständige Regressionstest-Abdeckung in `tests/test_local.js` (14/14 Tests grün).
+  - Vollständige Regressionstest-Abdeckung in `tests/test_local.js` (15/15 Tests grün).
 
 ---
 
