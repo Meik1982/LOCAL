@@ -665,6 +665,12 @@
                         '3. Klicke auf <b>Nach Updates suchen</b> (Check for update).',
                         '4. Warte, bis der Download abgeschlossen ist (Status wechselt von Version 0.0.0.0 auf eine Versionsnummer wie 2024.x oder 2025.x).'
                     ];
+                } else if (avail === 'downloading') {
+                    diagnosisState = 'DOWNLOADING';
+                    actionGuide = [
+                        'Das KI-Modell wird aktuell im Hintergrund heruntergeladen.',
+                        'Bitte warte einen Moment, bis der Download in Chrome abgeschlossen ist.'
+                    ];
                 } else if (avail === 'no' || avail === 'unavailable') {
                     diagnosisState = 'PERF_OR_STORAGE_BLOCKED';
                     actionGuide = [
@@ -676,7 +682,7 @@
                         '3. Starte Chrome neu (Relaunch) und stoße in <code>chrome://components</code> das Update für <b>Optimization Guide On Device Model</b> an.',
                         os === 'Windows' ? '4. Falls du im WLAN bist: Prüfe, ob in den Windows-Netzwerkeinstellungen "Getaktete Verbindung" (Metered Connection) deaktiviert ist.' : ''
                     ].filter(Boolean);
-                } else if (avail === 'readily') {
+                } else if (avail === 'readily' || avail === 'available') {
                     diagnosisState = 'READY';
                     actionGuide = ['Alle Systemvoraussetzungen sind erfüllt. Gemini Nano ist einsatzbereit.'];
                 } else {
@@ -749,13 +755,15 @@
 
                 const card = document.createElement('div');
                 const isOk = diag.diagnosisState === 'READY';
-                const isWarn = diag.diagnosisState === 'NEEDS_DOWNLOAD';
+                const isWarn = diag.diagnosisState === 'NEEDS_DOWNLOAD' || diag.diagnosisState === 'DOWNLOADING';
                 card.className = `system-diagnostic-card ${isOk ? 'status-ok' : isWarn ? 'status-warn' : ''}`;
 
                 let stateBadge = "🔴 Offline / Konfiguration nötig";
                 if (isOk) {
                     stateBadge = "🟢 Gemini Nano bereit";
-                } else if (isWarn) {
+                } else if (diag.diagnosisState === 'DOWNLOADING') {
+                    stateBadge = "⏳ Modell-Download läuft...";
+                } else if (diag.diagnosisState === 'NEEDS_DOWNLOAD') {
                     stateBadge = "🟡 Download ausstehend";
                 }
 
@@ -768,10 +776,14 @@
                 let checkModelClass = 'diag-check-fail';
                 let checkModelIcon = '✗';
                 let checkModelText = `Modell-Verfügbarkeit: "${diag.model.availability || 'nicht abrufbar'}"`;
-                if (diag.model.availability === 'readily') {
+                if (diag.model.availability === 'readily' || diag.model.availability === 'available') {
                     checkModelClass = 'diag-check-pass';
                     checkModelIcon = '✓';
-                    checkModelText = 'Gemini Nano Modell geladen und einsatzbereit';
+                    checkModelText = `Gemini Nano Modell geladen und einsatzbereit ("${diag.model.availability}")`;
+                } else if (diag.model.availability === 'downloading') {
+                    checkModelClass = 'diag-check-warn';
+                    checkModelIcon = '⏳';
+                    checkModelText = 'Download läuft aktuell im Browser';
                 } else if (diag.model.availability === 'after-download' || diag.model.availability === 'downloadable') {
                     checkModelClass = 'diag-check-warn';
                     checkModelIcon = '⏳';

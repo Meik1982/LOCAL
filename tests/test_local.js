@@ -244,9 +244,15 @@ const appMock = {
                 '3. Starte Chrome neu (Relaunch) und stoße in <code>chrome://components</code> das Update für <b>Optimization Guide On Device Model</b> an.',
                 os === 'Windows' ? '4. Falls du im WLAN bist: Prüfe, ob in den Windows-Netzwerkeinstellungen "Getaktete Verbindung" (Metered Connection) deaktiviert ist.' : ''
             ].filter(Boolean);
-        } else if (avail === 'readily') {
+        } else if (avail === 'readily' || avail === 'available') {
             diagnosisState = 'READY';
             actionGuide = ['Alle Systemvoraussetzungen sind erfüllt. Gemini Nano ist einsatzbereit.'];
+        } else if (avail === 'downloading') {
+            diagnosisState = 'DOWNLOADING';
+            actionGuide = [
+                'Das KI-Modell wird aktuell im Hintergrund heruntergeladen.',
+                'Bitte warte einen Moment, bis der Download in Chrome abgeschlossen ist.'
+            ];
         } else {
             diagnosisState = 'API_ERROR';
             actionGuide = [
@@ -437,17 +443,28 @@ test('12. Systemdiagnose: Erkennung Performance/Storage-Sperre (PERF_OR_STORAGE_
     assert.ok(diag.actionGuide.some(step => step.includes('C:')));
 });
 
-test('13. Systemdiagnose: Erfolgreiche Betriebsbereitschaft (READY)', () => {
-    const env = {
+test('13. Systemdiagnose: Erfolgreiche Betriebsbereitschaft (READY via readily oder available)', () => {
+    // 13a. Älterer Canary Entwurf: readily
+    const envReadily = {
         userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/128.0.0.0 Safari/537.36',
         hasChromeGlobal: true,
         hasWindowLanguageModel: true,
         availability: 'readily'
     };
-    const diag = appMock.evaluateDiagnosis(env);
-    
-    assert.equal(diag.os, 'Linux');
-    assert.equal(diag.diagnosisState, 'READY');
+    const diagReadily = appMock.evaluateDiagnosis(envReadily);
+    assert.equal(diagReadily.os, 'Linux');
+    assert.equal(diagReadily.diagnosisState, 'READY');
+
+    // 13b. Neuerer WICG Standard Entwurf: available
+    const envAvailable = {
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/130.0.0.0 Safari/537.36',
+        hasChromeGlobal: true,
+        hasWindowLanguageModel: true,
+        availability: 'available'
+    };
+    const diagAvailable = appMock.evaluateDiagnosis(envAvailable);
+    assert.equal(diagAvailable.os, 'Linux');
+    assert.equal(diagAvailable.diagnosisState, 'READY');
 });
 
 test('14. Systemdiagnose: Nicht-Chromium Browser Erkennung (NON_CHROMIUM)', () => {
