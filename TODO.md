@@ -72,20 +72,21 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
 
 ## 3. Zukünftige Optimierungspotenziale (Backlog – nach Priorität sortiert)
 
-### Priorität 1 (Hoch): Offline PWA & Service Worker
-- [ ] **Installierbare Desktop-App (Progressive Web App):**
-  Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching aller Assets (Icons, HTML, CSS, JS). Ermöglicht die Installation als vollwertige Desktop-App mit eigenem Fenster sowie den garantierten Start ohne Webserver oder Internetverbindung.
-
-### Priorität 2 (Mittel): Erweiterte Export-Formate (Markdown & JSON)
+### Priorität 1 (Hoch): Erweiterte Export-Formate (Markdown & JSON)
 - [ ] **Strukturierte Dokumenten-Exporte:**
   Export von Unterhaltungen wahlweise als:
   - **Markdown (`.md`):** Sauber formatierter Text mit echten Headings, Codeblöcken und Zitaten (ideal für Obsidian, Notion und GitHub).
   - **JSON (`.json`):** Maschinenlesbare Struktur mit Timestamps, Rollen (`user`, `assistant`, `system`) und Token-Statistiken für automatisierte Weiterverarbeitung.
+  - Erhalt des bestehenden `.txt`-Formats für maximale Abwärtskompatibilität beim Chat-Import.
 
-### Priorität 3 (Mittel): System-Prompt Presets (Persona-Vorlagen)
+### Priorität 2 (Mittel): System-Prompt Presets (Persona-Vorlagen)
 - [ ] **Vordefinierte Experten-Rollen im Persona-Panel:**
   Schnellwahl-Dropdown im Einstellungsmenü für kuratierte System-Prompts (z. B. „Code-Reviewer & Refactoring-Spezialist“, „Prüftechniker / Sicherheits-Auditor“, „Kritischer Sparringspartner“, „Präziser Übersetzer“).
 
-### Priorität 4 (Langfristig): Wasm / WebGPU Fallback (Hybrid-Engine)
+### Priorität 3 (Langfristig): Wasm / WebGPU Fallback (Hybrid-Engine)
 - [ ] **Plattformunabhängige In-Browser-KI via WebGPU:**
   Optionale Integration einer WebGPU/Wasm-Engine (z. B. WebLLM / transformers.js mit SmolLM oder Qwen) als automatischer Fallback für Browser ohne native Chrome Prompt API (Firefox, Safari, Chromium-Forks).
+
+### Priorität 4 (Optional / Nachgelagert): Offline PWA & Service Worker
+- [ ] **Installierbare Desktop-App (Progressive Web App):**
+  Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching aller Assets (Icons, HTML, CSS, JS) bei Bereitstellung über `http://localhost`. Ermöglicht die Installation als Desktop-App mit eigenem Fenster.
