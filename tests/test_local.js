@@ -464,4 +464,19 @@ test('14. Systemdiagnose: Nicht-Chromium Browser Erkennung (NON_CHROMIUM)', () =
     assert.ok(diag.actionGuide.some(step => step.includes('Google Chrome')));
 });
 
+test('15. Versions-Konsistenz: package.json, CONFIG und DOM-Badges', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
+    const expectedVer = pkg.version;
+    
+    // Prüfe CONFIG.APP_VERSION im Script
+    const configVerMatch = scriptMatch[1].match(/APP_VERSION:\s*["']([^"']+)["']/);
+    assert.ok(configVerMatch, 'CONFIG.APP_VERSION muss im Script definiert sein');
+    assert.equal(configVerMatch[1], expectedVer, 'CONFIG.APP_VERSION muss mit package.json übereinstimmen');
+
+    // Prüfe Header-Badge und Sidebar-Footer im HTML
+    assert.ok(htmlSource.includes(`v${expectedVer}`), `HTML muss 'v${expectedVer}' Badge enthalten`);
+    assert.ok(htmlSource.includes(`id="app-version-badge"`), 'Header muss #app-version-badge besitzen');
+    assert.ok(htmlSource.includes(`class="sidebar-footer"`), 'Sidebar muss .sidebar-footer besitzen');
+});
+
 

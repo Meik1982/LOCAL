@@ -95,6 +95,11 @@
         }
         .session-item:hover .session-item-delete { display: inline-block; }
         .session-item-delete:hover { background: rgba(255, 82, 82, 0.2); }
+        .sidebar-footer {
+            padding: 10px 15px; border-top: 1px solid var(--border-color);
+            font-size: 0.75em; color: #777; text-align: center; font-family: 'Consolas', 'Menlo', monospace;
+            user-select: none;
+        }
 
         /* === Haupt-Chatbereich === */
         #chat-container {
@@ -114,7 +119,12 @@
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--border-color);
         }
-        .header-title-area { display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 1.05em; }
+        .header-title-area { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.05em; }
+        .header-version-badge {
+            font-size: 0.72em; padding: 2px 6px; border-radius: 4px;
+            font-weight: 500; background: #252525; color: #888; border: 1px solid #3a3a3a;
+            font-family: 'Consolas', 'Menlo', monospace; user-select: none;
+        }
         .header-status-badge {
             font-size: 0.75em; padding: 2px 8px; border-radius: 12px;
             font-weight: normal; background: #333; color: #aaa; display: inline-flex; align-items: center; gap: 4px;
@@ -361,7 +371,7 @@
         <!-- Debug Terminal Overlay -->
         <div id="debug-terminal">
             <div id="debug-terminal-header">
-                <span>🛠️ System Debug Terminal (Strg+D / Cmd+D)</span>
+                <span>🛠️ System Debug Terminal v1.2.0 (Strg+D / Cmd+D)</span>
                 <button id="export-log-btn" class="action-btn" style="color: white; border: 1px solid #555; padding: 3px 8px;">Logs exportieren (.log)</button>
             </div>
             <div id="debug-log"></div>
@@ -371,6 +381,9 @@
         <div id="sidebar">
             <div class="sidebar-header"><button class="new-chat-full-btn" id="sidebar-new-btn">➕ Neuer Chat</button></div>
             <div id="session-list"></div>
+            <div class="sidebar-footer">
+                <span>LOCAL v1.2.0 • Offline AI</span>
+            </div>
         </div>
 
         <!-- Main Chat Area -->
@@ -381,6 +394,7 @@
                 <div class="header-title-area">
                     <button id="toggle-sidebar-btn" class="icon-btn" title="Seitenleiste ein/ausblenden (Strg+B / Cmd+B)">☰</button>
                     <span>LOCAL (Gemini Nano)</span>
+                    <span id="app-version-badge" class="header-version-badge" title="LOCAL Version 1.2.0 (Zero-Dependency In-Browser AI)">v1.2.0</span>
                     <span id="api-status-badge" class="header-status-badge">Prüfe KI...</span>
                     <span id="token-counter-badge" class="header-status-badge" style="display: none; background: #222; color: #90caf9;" title="Kontext-Auslastung"></span>
                 </div>
@@ -432,6 +446,7 @@
          * @typedef {Object} AppConfig
          */
         const CONFIG = {
+            APP_VERSION: "1.2.0",
             SCROLL_THRESHOLD: 30,
             FILE_PREFIX: "--- Lokaler KI-Chat Export ---",
             MAX_WEBPAGE_CHARS: 3500,
