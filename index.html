@@ -175,6 +175,29 @@
             background: var(--bg-surface); border: 1px solid #444; color: #fff;
             padding: 4px 8px; border-radius: 4px; font-size: 0.9em; flex-grow: 1; min-width: 200px;
         }
+        .settings-select {
+            background-color: var(--bg-surface); color: var(--text-main);
+            border: 1px solid #444; border-radius: 4px; padding: 3px 8px;
+            font-size: 0.82em; outline: none; cursor: pointer;
+        }
+        .settings-select:focus { border-color: var(--accent-primary); }
+
+        /* === Dropdown Menüs (Export etc.) === */
+        .dropdown-container { position: relative; display: inline-block; }
+        .dropdown-menu {
+            position: absolute; top: calc(100% + 6px); right: 0;
+            background: #252525; border: 1px solid #444; border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6); z-index: 1000;
+            min-width: 175px; overflow: hidden; padding: 4px 0;
+            display: none; flex-direction: column;
+        }
+        .dropdown-item {
+            display: flex; align-items: center; gap: 8px; width: 100%;
+            padding: 8px 12px; background: transparent; border: none;
+            color: #e0e0e0; font-size: 0.85em; text-align: left;
+            cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+        }
+        .dropdown-item:hover { background: #383838; color: #90caf9; }
 
         /* === Chat Verlauf === */
         #chat-box { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
@@ -371,7 +394,7 @@
         <!-- Debug Terminal Overlay -->
         <div id="debug-terminal">
             <div id="debug-terminal-header">
-                <span>🛠️ System Debug Terminal v1.2.0 (Strg+D / Cmd+D)</span>
+                <span>🛠️ System Debug Terminal v1.3.0 (Strg+D / Cmd+D)</span>
                 <button id="export-log-btn" class="action-btn" style="color: white; border: 1px solid #555; padding: 3px 8px;">Logs exportieren (.log)</button>
             </div>
             <div id="debug-log"></div>
@@ -382,7 +405,7 @@
             <div class="sidebar-header"><button class="new-chat-full-btn" id="sidebar-new-btn">➕ Neuer Chat</button></div>
             <div id="session-list"></div>
             <div class="sidebar-footer">
-                <span>LOCAL v1.2.0 • Offline AI</span>
+                <span>LOCAL v1.3.0 • Offline AI</span>
             </div>
         </div>
 
@@ -394,7 +417,7 @@
                 <div class="header-title-area">
                     <button id="toggle-sidebar-btn" class="icon-btn" title="Seitenleiste ein/ausblenden (Strg+B / Cmd+B)">☰</button>
                     <span>LOCAL (Gemini Nano)</span>
-                    <span id="app-version-badge" class="header-version-badge" title="LOCAL Version 1.2.0 (Zero-Dependency In-Browser AI)">v1.2.0</span>
+                    <span id="app-version-badge" class="header-version-badge" title="LOCAL Version 1.3.0 (Zero-Dependency In-Browser AI)">v1.3.0</span>
                     <span id="api-status-badge" class="header-status-badge">Prüfe KI...</span>
                     <span id="token-counter-badge" class="header-status-badge" style="display: none; background: #222; color: #90caf9;" title="Kontext-Auslastung"></span>
                 </div>
@@ -402,7 +425,14 @@
                     <button id="toggle-settings-btn" class="icon-btn" title="Einstellungen & Persona">⚙️ Persona</button>
                     <button id="import-btn" class="icon-btn" title="Chat laden (Strg+O / Cmd+O)">📂</button>
                     <input type="file" id="import-file" accept=".txt" style="display: none;">
-                    <button id="export-btn" class="icon-btn" title="Chat speichern (Strg+S / Cmd+S)">💾</button>
+                    <div class="dropdown-container">
+                        <button id="export-btn" class="icon-btn" title="Chat exportieren (Strg+S / Cmd+S)">💾</button>
+                        <div id="export-dropdown" class="dropdown-menu">
+                            <button class="dropdown-item" data-format="md">📄 Markdown (.md)</button>
+                            <button class="dropdown-item" data-format="json">📊 JSON (.json)</button>
+                            <button class="dropdown-item" data-format="txt">💾 Text-Backup (.txt)</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -411,8 +441,18 @@
             
             <div id="settings-panel">
                 <div class="settings-field">
-                    <label class="settings-label" for="system-prompt">System-Prompt / Persona:</label>
-                    <textarea id="system-prompt" rows="2" placeholder="Definiere Rolle, Tonfall und Verhaltensregeln der KI..."></textarea>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; flex-wrap: wrap; gap: 6px;">
+                        <label class="settings-label" for="system-prompt" style="margin-bottom: 0;">System-Prompt / Persona:</label>
+                        <select id="persona-preset-select" class="settings-select" title="Vorgefertigte Experten-Persona auswählen">
+                            <option value="custom">-- Eigene Persona --</option>
+                            <option value="general">Standard (Präzise & Sachlich)</option>
+                            <option value="code_review">Systems & Code-Reviewer (C/Rust/Linux)</option>
+                            <option value="auditor">Technischer Auditor & Sicherheits-Prüfer</option>
+                            <option value="sparring">Kritischer Sparringspartner (Architektur & Logik)</option>
+                            <option value="concise">Minimalist (Nur Fakten & Code)</option>
+                        </select>
+                    </div>
+                    <textarea id="system-prompt" rows="3" placeholder="Definiere Rolle, Tonfall und Verhaltensregeln der KI..."></textarea>
                 </div>
                 <div class="settings-row">
                     <label><input type="checkbox" id="cfg-proxy-allow" checked> Webseiten-Abruf via CORS-Proxy erlauben</label>
@@ -446,7 +486,7 @@
          * @typedef {Object} AppConfig
          */
         const CONFIG = {
-            APP_VERSION: "1.2.0",
+            APP_VERSION: "1.3.0",
             SCROLL_THRESHOLD: 30,
             FILE_PREFIX: "--- Lokaler KI-Chat Export ---",
             MAX_WEBPAGE_CHARS: 3500,
@@ -463,7 +503,14 @@
             },
             DEFAULT_PROXY_URL: "https://api.allorigins.win/get?url=",
             PROXY_TIMEOUT_MS: 8000,
-            DEFAULT_MAX_TOKENS: 4096
+            DEFAULT_MAX_TOKENS: 4096,
+            PERSONA_PRESETS: {
+                general: "Du bist ein kompetenter, präziser und direkter KI-Assistent. Antworte ohne Füllsätze, sachlich und auf den Punkt. Formatiere Code stets mit Sprachangabe in Markdown.",
+                code_review: "Du bist ein erfahrener Systems-Programmierer (C, Rust, Linux-Kernel, POSIX). Analysiere Code streng auf Speicherlecks, Concurrency-Issues, UB (Undefined Behavior), Bounds-Checks und Robustheit. Liefere stets konkrete Diff- oder Code-Korrekturen und erkläre das 'Warum'.",
+                auditor: "Du bist ein technischer Auditor und Sicherheitsprüfer (Schwerpunkt: IT-Sicherheit, Code-Audits und technische Normen). Hinterfrage Annahmen kritisch, identifiziere Schwachstellen (XSS, Injection, Quota-Limits, Race Conditions) und fordere lückenlose Verifikation.",
+                sparring: "Du bist ein unvoreingenommener, kritischer Sparringspartner. Bestätige Annahmen nicht vorschnell, sondern weise auf Edge Cases, architektonische Fallstricke, Skalierungsgrenzen und alternative Design-Patterns hin.",
+                concise: "Antworte extrem komprimiert: Ausschließlich Code, Befehle oder stichpunktartige Fakten. Verzichte komplett auf Einleitungen, Zusammenfassungen, Höflichkeitsfloskeln oder Wiederholungen der Frage."
+            }
         };
 
         class AIChatApp {
@@ -477,6 +524,7 @@
                     stopBtn: document.getElementById('stop-btn'),
                     micBtn: document.getElementById('mic-btn'),
                     sysPrompt: document.getElementById('system-prompt'),
+                    personaPresetSelect: document.getElementById('persona-preset-select'),
                     settingsPanel: document.getElementById('settings-panel'),
                     cfgProxyAllow: document.getElementById('cfg-proxy-allow'),
                     cfgProxyUrl: document.getElementById('cfg-proxy-url'),
@@ -484,6 +532,7 @@
                     apiStatusBadge: document.getElementById('api-status-badge'),
                     tokenBadge: document.getElementById('token-counter-badge'),
                     importFile: document.getElementById('import-file'),
+                    exportDropdown: document.getElementById('export-dropdown'),
                     contextContainer: document.getElementById('context-bar-container'),
                     contextFill: document.getElementById('context-bar-fill'),
                     dragOverlay: document.getElementById('drag-overlay'),
@@ -505,7 +554,9 @@
                     resizeScheduled: false,
                     settings: {
                         allowProxy: true,
-                        proxyUrl: CONFIG.DEFAULT_PROXY_URL
+                        proxyUrl: CONFIG.DEFAULT_PROXY_URL,
+                        systemPrompt: "",
+                        activePreset: "custom"
                     }
                 };
 
@@ -574,16 +625,54 @@
                 }
                 this.dom.cfgProxyAllow.checked = this.state.settings.allowProxy;
                 this.dom.cfgProxyUrl.value = this.state.settings.proxyUrl || CONFIG.DEFAULT_PROXY_URL;
+                if (this.state.settings.systemPrompt !== undefined && this.dom.sysPrompt) {
+                    this.dom.sysPrompt.value = this.state.settings.systemPrompt;
+                }
+                if (this.dom.personaPresetSelect) {
+                    if (this.state.settings.activePreset) {
+                        this.dom.personaPresetSelect.value = this.state.settings.activePreset;
+                    } else {
+                        this.syncPresetSelectFromText();
+                    }
+                }
             }
 
             saveSettings() {
                 this.state.settings.allowProxy = this.dom.cfgProxyAllow.checked;
                 this.state.settings.proxyUrl = this.dom.cfgProxyUrl.value.trim() || CONFIG.DEFAULT_PROXY_URL;
+                if (this.dom.sysPrompt) {
+                    this.state.settings.systemPrompt = this.dom.sysPrompt.value;
+                }
+                if (this.dom.personaPresetSelect) {
+                    this.state.settings.activePreset = this.dom.personaPresetSelect.value;
+                }
                 try {
                     localStorage.setItem(CONFIG.STORAGE_SETTINGS_KEY, JSON.stringify(this.state.settings));
                 } catch (e) {
                     this.debug('WARN', 'Settings Speicherfehler', e.message);
                 }
+            }
+
+            syncPresetSelectFromText() {
+                if (!this.dom.personaPresetSelect || !this.dom.sysPrompt) return;
+                const currentText = this.dom.sysPrompt.value.trim();
+                let matched = 'custom';
+                for (const [key, presetPrompt] of Object.entries(CONFIG.PERSONA_PRESETS)) {
+                    if (presetPrompt.trim() === currentText) {
+                        matched = key;
+                        break;
+                    }
+                }
+                this.dom.personaPresetSelect.value = matched;
+            }
+
+            applyPersonaPreset(presetKey) {
+                if (!this.dom.sysPrompt) return;
+                if (presetKey && CONFIG.PERSONA_PRESETS[presetKey]) {
+                    this.dom.sysPrompt.value = CONFIG.PERSONA_PRESETS[presetKey];
+                }
+                this.saveSettings();
+                this.updateTokenCounter();
             }
 
             // ==========================================
@@ -1600,13 +1689,89 @@
                 return chatText;
             }
 
-            exportChat() {
-                const text = this.generateExportString();
-                const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            generateMarkdownExport() {
+                const activeSession = this.state.sessionsData.find(s => s.id === this.state.currentSessionId);
+                const title = activeSession ? activeSession.title : "Lokaler KI-Chat";
+                let md = `# ${title}\n\n`;
+                md += `*Exportiert am: ${new Date().toLocaleString()} | Version: v${CONFIG.APP_VERSION} | Modell: Gemini Nano*\n\n`;
+
+                const sysPrompt = this.dom.sysPrompt ? this.dom.sysPrompt.value.trim() : "";
+                if (sysPrompt) {
+                    md += `> **System-Prompt / Persona:**\n> ${sysPrompt.replace(/\n/g, '\n> ')}\n\n`;
+                }
+                md += `---\n\n`;
+
+                this.dom.chatBox.querySelectorAll('.message-wrapper, .sys-msg').forEach(w => {
+                    if (w.classList.contains('sys-msg')) {
+                        md += `> ℹ️ *${w.textContent.trim()}*\n\n`;
+                    } else {
+                        const isUser = w.classList.contains('wrapper-user');
+                        const author = isUser ? "👤 **Du**" : "🤖 **Gemini Nano**";
+                        const raw = (w.dataset.rawText || w.textContent).trim();
+                        md += `### ${author}\n\n${raw}\n\n---\n\n`;
+                    }
+                });
+                return md;
+            }
+
+            generateJsonExport() {
+                const messages = [];
+                this.dom.chatBox.querySelectorAll('.message-wrapper, .sys-msg').forEach(w => {
+                    if (w.classList.contains('sys-msg')) {
+                        messages.push({
+                            role: 'system',
+                            text: w.textContent.trim(),
+                            timestamp: new Date().toISOString()
+                        });
+                    } else {
+                        messages.push({
+                            role: w.classList.contains('wrapper-user') ? 'user' : 'assistant',
+                            text: (w.dataset.rawText || w.textContent).trim(),
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                });
+
+                const activeSession = this.state.sessionsData.find(s => s.id === this.state.currentSessionId);
+                const exportObj = {
+                    app: "LOCAL",
+                    version: CONFIG.APP_VERSION,
+                    exportedAt: new Date().toISOString(),
+                    session: {
+                        id: this.state.currentSessionId || null,
+                        title: activeSession ? activeSession.title : "Neuer Chat"
+                    },
+                    systemPrompt: this.dom.sysPrompt ? this.dom.sysPrompt.value.trim() : "",
+                    messages
+                };
+                return JSON.stringify(exportObj, null, 2);
+            }
+
+            exportChat(format = 'txt') {
+                let content = "";
+                let mime = "text/plain;charset=utf-8";
+                let ext = "txt";
+
+                if (format === 'md') {
+                    content = this.generateMarkdownExport();
+                    mime = "text/markdown;charset=utf-8";
+                    ext = "md";
+                } else if (format === 'json') {
+                    content = this.generateJsonExport();
+                    mime = "application/json;charset=utf-8";
+                    ext = "json";
+                } else {
+                    content = this.generateExportString();
+                    mime = "text/plain;charset=utf-8";
+                    ext = "txt";
+                }
+
+                const blob = new Blob([content], { type: mime });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = `local-chat-${Date.now()}.txt`;
+                a.download = `local-chat-${Date.now()}.${ext}`;
                 a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
             }
 
             async loadFromString(content, skipInit = false) {
@@ -1682,7 +1847,47 @@
 
                 document.getElementById('sidebar-new-btn').addEventListener('click', () => this.createNewSession());
                 document.getElementById('import-btn').addEventListener('click', () => this.dom.importFile.click());
-                document.getElementById('export-btn').addEventListener('click', () => this.exportChat());
+
+                const exportDropdown = this.dom.exportDropdown;
+                const exportBtn = document.getElementById('export-btn');
+                if (exportDropdown && exportBtn) {
+                    exportBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const isVisible = exportDropdown.style.display === 'flex';
+                        exportDropdown.style.display = isVisible ? 'none' : 'flex';
+                    });
+
+                    exportDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+                        item.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const format = item.dataset.format || 'txt';
+                            this.exportChat(format);
+                            exportDropdown.style.display = 'none';
+                        });
+                    });
+
+                    document.addEventListener('click', (e) => {
+                        if (!exportDropdown.contains(e.target) && e.target !== exportBtn) {
+                            exportDropdown.style.display = 'none';
+                        }
+                    });
+                } else if (exportBtn) {
+                    exportBtn.addEventListener('click', () => this.exportChat());
+                }
+
+                if (this.dom.personaPresetSelect) {
+                    this.dom.personaPresetSelect.addEventListener('change', (e) => {
+                        this.applyPersonaPreset(e.target.value);
+                    });
+                }
+
+                if (this.dom.sysPrompt) {
+                    this.dom.sysPrompt.addEventListener('input', () => {
+                        this.syncPresetSelectFromText();
+                        this.saveSettings();
+                        this.updateTokenCounter();
+                    });
+                }
 
                 this.dom.importFile.addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -1775,7 +1980,15 @@
                             case 'm': e.preventDefault(); this.toggleMic(); break;
                             case 'b': e.preventDefault(); this.dom.sidebar.classList.toggle('hidden'); break;
                             case 'l': e.preventDefault(); this.createNewSession(); break;
-                            case 's': e.preventDefault(); this.exportChat(); break;
+                            case 's':
+                                e.preventDefault();
+                                if (this.dom.exportDropdown) {
+                                    const isVisible = this.dom.exportDropdown.style.display === 'flex';
+                                    this.dom.exportDropdown.style.display = isVisible ? 'none' : 'flex';
+                                } else {
+                                    this.exportChat('md');
+                                }
+                                break;
                             case 'o': e.preventDefault(); this.dom.importFile.click(); break;
                         }
                     }

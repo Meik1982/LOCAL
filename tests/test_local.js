@@ -26,11 +26,19 @@ if (!scriptMatch) {
 // Erstelle eine Sandbox-Instanz der Parser- und Storage-Methoden
 const appMock = {
     CONFIG: {
+        APP_VERSION: "1.3.0",
         FILE_PREFIX: "--- Lokaler KI-Chat Export ---",
         MAX_WEBPAGE_CHARS: 3500,
         MAX_CONTEXT_CHARS: 12000,
         SAFE_INIT_CHARS: 9000,
-        MARKERS: { SYS: "---[System]---", USR: "---[Du]---", AI: "---[KI]---" }
+        MARKERS: { SYS: "---[System]---", USR: "---[Du]---", AI: "---[KI]---" },
+        PERSONA_PRESETS: {
+            general: "Du bist ein kompetenter, präziser und direkter KI-Assistent. Antworte ohne Füllsätze, sachlich und auf den Punkt. Formatiere Code stets mit Sprachangabe in Markdown.",
+            code_review: "Du bist ein erfahrener Systems-Programmierer (C, Rust, Linux-Kernel, POSIX). Analysiere Code streng auf Speicherlecks, Concurrency-Issues, UB (Undefined Behavior), Bounds-Checks und Robustheit. Liefere stets konkrete Diff- oder Code-Korrekturen und erkläre das 'Warum'.",
+            auditor: "Du bist ein technischer Auditor und Sicherheitsprüfer (Schwerpunkt: IT-Sicherheit, Code-Audits und technische Normen). Hinterfrage Annahmen kritisch, identifiziere Schwachstellen (XSS, Injection, Quota-Limits, Race Conditions) und fordere lückenlose Verifikation.",
+            sparring: "Du bist ein unvoreingenommener, kritischer Sparringspartner. Bestätige Annahmen nicht vorschnell, sondern weise auf Edge Cases, architektonische Fallstricke, Skalierungsgrenzen und alternative Design-Patterns hin.",
+            concise: "Antworte extrem komprimiert: Ausschließlich Code, Befehle oder stichpunktartige Fakten. Verzichte komplett auf Einleitungen, Zusammenfassungen, Höflichkeitsfloskeln oder Wiederholungen der Frage."
+        }
     },
     escapeHtml(str) {
         return str
@@ -324,6 +332,50 @@ const appMock = {
             currentLength += chunk.length;
         }
         return historyText;
+    },
+    generateMarkdownExport(sessionTitle, sysPrompt, messages) {
+        let md = `# ${sessionTitle || "Lokaler KI-Chat"}\n\n`;
+        md += `*Exportiert am: 2026-09-23 | Version: v${this.CONFIG.APP_VERSION} | Modell: Gemini Nano*\n\n`;
+        if (sysPrompt) {
+            md += `> **System-Prompt / Persona:**\n> ${sysPrompt.replace(/\n/g, '\n> ')}\n\n`;
+        }
+        md += `---\n\n`;
+        messages.forEach(m => {
+            if (m.role === 'system') {
+                md += `> ℹ️ *${m.text.trim()}*\n\n`;
+            } else {
+                const author = m.role === 'user' ? "👤 **Du**" : "🤖 **Gemini Nano**";
+                md += `### ${author}\n\n${m.text.trim()}\n\n---\n\n`;
+            }
+        });
+        return md;
+    },
+    generateJsonExport(sessionId, sessionTitle, sysPrompt, messages) {
+        const exportObj = {
+            app: "LOCAL",
+            version: this.CONFIG.APP_VERSION,
+            exportedAt: "2026-09-23T06:30:00.000Z",
+            session: {
+                id: sessionId || null,
+                title: sessionTitle || "Neuer Chat"
+            },
+            systemPrompt: sysPrompt || "",
+            messages: messages.map(m => ({
+                role: m.role,
+                text: m.text,
+                timestamp: "2026-09-23T06:30:00.000Z"
+            }))
+        };
+        return JSON.stringify(exportObj, null, 2);
+    },
+    syncPresetSelectFromText(text) {
+        const currentText = (text || "").trim();
+        for (const [key, presetPrompt] of Object.entries(this.CONFIG.PERSONA_PRESETS)) {
+            if (presetPrompt.trim() === currentText) {
+                return key;
+            }
+        }
+        return 'custom';
     }
 };
 
@@ -650,6 +702,71 @@ test('20. Statisches Sicherheits-Audit: Strikte Sandbox-Isolation im Quellcode',
     // 20c. Keine gefährlichen Inline-JavaScript Pseudo-Protokolle
     assert.doesNotMatch(htmlSource, /href\s*=\s*["']javascript:/i, 'Keine inline javascript: URLs erlaubt');
     assert.doesNotMatch(htmlSource, /src\s*=\s*["']javascript:/i, 'Keine inline javascript: Quellen erlaubt');
+});
+
+test('21. Strukturierter Markdown-Export (.md)', () => {
+    const sessionTitle = 'C-Kernel Audit & Ringpuffer';
+    const sysPrompt = 'Du bist ein erfahrener Systems-Programmierer.';
+    const messages = [
+        { role: 'system', text: 'Prompt API verbunden.' },
+        { role: 'user', text: 'Wie verhindere ich Buffer Overflows in C?' },
+        { role: 'ai', text: 'Nutze Bounds-Checking und vermeide ungesicherte Funktionen wie strcpy():\n\n```c\nstrncpy(dest, src, sizeof(dest) - 1);\n```' }
+    ];
+
+    const md = appMock.generateMarkdownExport(sessionTitle, sysPrompt, messages);
+    
+    assert.match(md, /^# C-Kernel Audit & Ringpuffer/, 'Muss Chat-Titel als H1 Überschrift tragen');
+    assert.match(md, /> \*\*System-Prompt \/ Persona:\*\*/, 'Muss System-Prompt Zitatblock enthalten');
+    assert.match(md, /### 👤 \*\*Du\*\*/, 'Muss User-Überschrift tragen');
+    assert.match(md, /Wie verhindere ich Buffer Overflows in C\?/, 'Muss User-Text enthalten');
+    assert.match(md, /### 🤖 \*\*Gemini Nano\*\*/, 'Muss KI-Überschrift tragen');
+    assert.match(md, /```c\nstrncpy\(dest, src, sizeof\(dest\) - 1\);\n```/, 'Code-Blöcke müssen unversehrt bleiben');
+    assert.match(md, /> ℹ️ \*Prompt API verbunden\.\*/, 'Systemnachrichten müssen als Info formatiert sein');
+    assert.match(md, /---/, 'Muss visuelle Trennlinien enthalten');
+});
+
+test('22. Maschinenlesbarer JSON-Export (.json)', () => {
+    const sessionId = 'session_12345';
+    const sessionTitle = 'Hardware-Analyse';
+    const sysPrompt = 'Analysiere Hardware-Metriken.';
+    const messages = [
+        { role: 'user', text: 'Wie viel RAM habe ich?' },
+        { role: 'assistant', text: 'Erkannt wurden ca. 32 GB RAM.' }
+    ];
+
+    const jsonStr = appMock.generateJsonExport(sessionId, sessionTitle, sysPrompt, messages);
+    const parsed = JSON.parse(jsonStr);
+
+    assert.equal(parsed.app, 'LOCAL');
+    assert.equal(parsed.version, '1.3.0');
+    assert.equal(parsed.session.id, 'session_12345');
+    assert.equal(parsed.session.title, 'Hardware-Analyse');
+    assert.equal(parsed.systemPrompt, 'Analysiere Hardware-Metriken.');
+    assert.equal(parsed.messages.length, 2);
+    assert.equal(parsed.messages[0].role, 'user');
+    assert.equal(parsed.messages[0].text, 'Wie viel RAM habe ich?');
+    assert.equal(parsed.messages[1].role, 'assistant');
+    assert.ok(parsed.messages[0].timestamp, 'Muss Timestamps besitzen');
+});
+
+test('23. Persona-Presets & Zwei-Wege-Synchronisation', () => {
+    // 23a. Auswahl der vordefinierten Presets
+    const codePreset = appMock.CONFIG.PERSONA_PRESETS.code_review;
+    assert.ok(codePreset.includes('Systems-Programmierer'), 'Code Review Preset muss existieren');
+    assert.ok(codePreset.includes('Undefined Behavior'), 'Code Review Preset muss UB enthalten');
+
+    const auditorPreset = appMock.CONFIG.PERSONA_PRESETS.auditor;
+    assert.ok(auditorPreset.includes('technischer Auditor'), 'Auditor Preset muss existieren');
+
+    // 23b. Erkennung des Presets anhand des Prompt-Texts (Reverse-Sync)
+    assert.equal(appMock.syncPresetSelectFromText(codePreset), 'code_review');
+    assert.equal(appMock.syncPresetSelectFromText(auditorPreset), 'auditor');
+    assert.equal(appMock.syncPresetSelectFromText(appMock.CONFIG.PERSONA_PRESETS.concise), 'concise');
+
+    // 23c. Modifizierter Text fällt automatisch auf 'custom' zurück
+    const modifiedPrompt = codePreset + ' Und antworte auf Spanisch.';
+    assert.equal(appMock.syncPresetSelectFromText(modifiedPrompt), 'custom');
+    assert.equal(appMock.syncPresetSelectFromText('Beliebiger eigener Prompt'), 'custom');
 });
 
 

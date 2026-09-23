@@ -42,7 +42,7 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
 - [x] **Codesandbox-Erweiterung (Reset & Toggle):**
   Möglichkeit, geöffnete Sandboxes jederzeit mit `⏹ Schließen` einzuklappen und zu entladen (`srcdoc = ''`).
 - [x] **Automatisierte Testsuite & Validierungs-Harness (`tests/`):**
-  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 20/20 Tests grün) für:
+  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 23/23 Tests grün) für:
   - Markdown-Sanitization, XSS-Schutz & Token-Kollisionssicherheit
   - Syntax-Highlighting & HTML-Entity Immunität
   - Roundtrip Multi-Turn Export/Import & Kontext-Slicing (SAFE_INIT_CHARS)
@@ -54,6 +54,9 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   - Auto-Titel-Generierung & LocalStorage-Robustheit bei korruptem JSON
   - Prompt-Deduplizierung bei Regenerierung (`regenerating-skip`)
   - Statisches Sicherheits-Audit: Strikte Sandbox-Isolation (`sandbox="allow-scripts"` ohne `allow-same-origin`)
+  - Strukturierter Markdown-Export (`.md`) mit Headings, Zitaten und Codeblöcken
+  - Maschinenlesbarer JSON-Export (`.json`) mit Timestamps und Rollen
+  - Persona-Presets & Zwei-Wege-Synchronisation mit Freitextfeld
 - [x] **Cross-Platform Hotkey Support:**
   Unterstützung von `Cmd` (MetaKey) für macOS bei allen Tastenkombinationen (`Cmd+D`, `Cmd+B`, `Cmd+S`, `Cmd+O`, `Cmd+L`, `Cmd+M`).
 - [x] **Lückenlose Dokumentation:**
@@ -66,27 +69,30 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   - Spezifische Handlungsanleitungen für Windows (Laufwerk C: Speicherplatz, `chrome://components` Optimization Guide Update, `Enabled BypassPerfRequirement`, Metered Connection).
   - Interaktive Diagnose-Karte im Chat mit Checkliste, Re-Test-Button (`🔄 Erneut prüfen`) und Button zum Öffnen des Debug-Terminals.
   - Diagnose per Klick auf die Status-Pille im Header oder über den Diagnose-Button im Persona-Panel jederzeit abrufbar.
-  - Vollständige Regressionstest-Abdeckung in `tests/test_local.js` (15/15 Tests grün).
+  - Vollständige Regressionstest-Abdeckung in `tests/test_local.js` (23/23 Tests grün).
+- [x] **Erweiterte Export-Formate (Markdown, JSON & Text-Backup) [v1.3.0]:**
+  - Dropdown-Menü beim Klick auf 💾 oder per Tastenkombination `Strg+S / Cmd+S`.
+  - **Markdown (`.md`):** Sauber formatierter Text mit Chat-Titel, Metadaten-Header, System-Prompt-Zitatblock, Autorenbeschriftungen (`👤 Du`, `🤖 Gemini Nano`) und unversehrten Codeblöcken (ideal für Obsidian, Notion, GitHub).
+  - **JSON (`.json`):** Strukturierter Export mit Metadaten, Session-ID, Session-Titel, System-Prompt, Timestamps und Rollen (`user`, `assistant`, `system`).
+  - **Text-Backup (`.txt`):** Originales Export-Format für 100 % kompatiblen Re-Import via `📂`.
+- [x] **System-Prompt Presets (Persona-Vorlagen) [v1.3.0]:**
+  - Schnellwahl-Dropdown im Einstellungen-Panel für kuratierte Experten-Rollen:
+    - *Standard (Präzise & Sachlich)*
+    - *Systems & Code-Reviewer (C/Rust/Linux)*
+    - *Technischer Auditor & Sicherheits-Prüfer*
+    - *Kritischer Sparringspartner (Architektur & Logik)*
+    - *Minimalist (Nur Fakten & Code)*
+  - Intelligente Zwei-Wege-Synchronisation: Manuelle Anpassung schaltet automatisch auf `custom` um; exakter Match synchronisiert das Dropdown zurück.
+  - Persistierung in `localStorage` (`nano_chat_settings_v1`).
 
 ---
 
 ## 3. Zukünftige Optimierungspotenziale (Backlog – nach Priorität sortiert)
 
-### Priorität 1 (Hoch): Erweiterte Export-Formate (Markdown & JSON)
-- [ ] **Strukturierte Dokumenten-Exporte:**
-  Export von Unterhaltungen wahlweise als:
-  - **Markdown (`.md`):** Sauber formatierter Text mit echten Headings, Codeblöcken und Zitaten (ideal für Obsidian, Notion und GitHub).
-  - **JSON (`.json`):** Maschinenlesbare Struktur mit Timestamps, Rollen (`user`, `assistant`, `system`) und Token-Statistiken für automatisierte Weiterverarbeitung.
-  - Erhalt des bestehenden `.txt`-Formats für maximale Abwärtskompatibilität beim Chat-Import.
-
-### Priorität 2 (Mittel): System-Prompt Presets (Persona-Vorlagen)
-- [ ] **Vordefinierte Experten-Rollen im Persona-Panel:**
-  Schnellwahl-Dropdown im Einstellungsmenü für kuratierte System-Prompts (z. B. „Code-Reviewer & Refactoring-Spezialist“, „Prüftechniker / Sicherheits-Auditor“, „Kritischer Sparringspartner“, „Präziser Übersetzer“).
-
-### Priorität 3 (Langfristig): Wasm / WebGPU Fallback (Hybrid-Engine)
+### Priorität 1 (Mittel): Wasm / WebGPU Fallback (Hybrid-Engine)
 - [ ] **Plattformunabhängige In-Browser-KI via WebGPU:**
   Optionale Integration einer WebGPU/Wasm-Engine (z. B. WebLLM / transformers.js mit SmolLM oder Qwen) als automatischer Fallback für Browser ohne native Chrome Prompt API (Firefox, Safari, Chromium-Forks).
 
-### Priorität 4 (Optional / Nachgelagert): Offline PWA & Service Worker
+### Priorität 2 (Optional / Nachgelagert): Offline PWA & Service Worker
 - [ ] **Installierbare Desktop-App (Progressive Web App):**
   Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching aller Assets (Icons, HTML, CSS, JS) bei Bereitstellung über `http://localhost`. Ermöglicht die Installation als Desktop-App mit eigenem Fenster.

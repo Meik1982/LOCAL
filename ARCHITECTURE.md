@@ -132,9 +132,19 @@ Browser begrenzen den `localStorage` in der Regel auf 5 bis 10 MB. Bei Überschr
 
 ---
 
-## 6. Daten- und Speicherformat
+## 6. Daten- und Speicherformate
 
-Chats werden in einem menschenlesbaren, zeilenbasierten Format exportiert und importiert:
+### 6.1 Multi-Format Export
+Ab Version `v1.3.0` unterstützt `LOCAL` drei zielgerichtete Exportformate über ein interaktives Dropdown-Menü (oder `Strg+S / Cmd+S`):
+
+1. **Markdown (`.md`):**
+   - Strukturierter Export für Notiz-Apps (Obsidian, Notion) und GitHub.
+   - Beinhaltet den Session-Titel als `# H1`, Metadaten (Export-Datum, Version, Modell), System-Prompt-Zitatblöcke (`>`) und Autorentrennzeichen (`### 👤 Du`, `### 🤖 Gemini Nano`).
+   - Codeblöcke und Formatierungen bleiben 100 % nativ erhalten.
+2. **JSON (`.json`):**
+   - Maschinenlesbare Struktur mit `version`, `exportedAt`, `session`-Metadaten, `systemPrompt` und einem serialisierten `messages`-Array mit Zeitstempeln und Rollen (`user`, `assistant`, `system`).
+3. **Text-Backup (`.txt`):**
+   - Das etablierte, zeilenbasierte Format für 100 % kompatiblen Re-Import via `📂`:
 
 ```text
 --- Lokaler KI-Chat Export ---
@@ -149,7 +159,5 @@ Benutzereingabe...
 Antwort der lokalen KI...
 ```
 
-Vorteile:
-- Keine JSON-Escape-Probleme bei massiven Markdown- und Code-Snippets.
-- Vollständig kompatibel mit Unix-Kommandozeilen-Tools (`grep`, `awk`, `diff`).
-- Verlustfreie Roundtrip-Serialisierung durch automatisierte Tests verifiziert.
+### 6.2 Persona-Presets & Zwei-Wege-Synchronisation
+Im Einstellungs-Panel (`⚙️ Persona`) stehen kuratierte System-Prompts für unterschiedliche Rollen bereit (Systems-Programmierer, Auditor, Sparringspartner, Minimalist). Eine Zwei-Wege-Synchronisation gleicht Änderungen im Freitextfeld dynamisch mit dem Dropdown ab (automatischer Umschwung auf `custom` bei manueller Abweichung).
