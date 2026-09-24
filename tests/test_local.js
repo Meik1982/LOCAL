@@ -489,6 +489,46 @@ const appMock = {
             });
         }
         return turns;
+    },
+    createWebGPUSessionAdapter(engine, systemPrompt = "Du bist ein KI-Assistent.") {
+        return {
+            isWebGpu: true,
+            maxTokens: 2048,
+            tokensSoFar: 0,
+            systemPrompt,
+            async *promptStreaming(promptText) {
+                const messages = [
+                    { role: "system", content: this.systemPrompt },
+                    { role: "user", content: promptText }
+                ];
+                const chunks = await engine.chat.completions.create({
+                    messages,
+                    stream: true,
+                    temperature: 0.6,
+                    max_tokens: 1024
+                });
+                for await (const chunk of chunks) {
+                    const delta = chunk.choices[0]?.delta?.content || "";
+                    if (delta) yield delta;
+                }
+            },
+            async countPromptTokens(text) {
+                return Math.ceil(text.length / 3.8);
+            },
+            destroy() {
+                try { engine.unload(); } catch (e) {}
+            }
+        };
+    },
+    simulateWebGPUProgress(report, onUpdate) {
+        const percent = (report.progress !== undefined && report.progress !== null)
+            ? Math.round(report.progress * 100)
+            : null;
+        const label = percent !== null ? `WebGPU: ${percent}%` : 'WebGPU lädt...';
+        if (onUpdate) {
+            onUpdate({ label, percent, text: report.text });
+        }
+        return { label, percent };
     }
 };
 
@@ -1347,6 +1387,114 @@ test('39. Modell-Interaktions-Parität: Chrome Gemini Nano vs. WebGPU Engine', a
     // Beide müssen destroy() fehlerfrei unterstützen
     assert.equal(appMock.cleanupSession(nanoSession), true);
     assert.equal(appMock.cleanupSession(webGpuSession), true);
+});
+
+test('40. WebGPU Ausweichmodell: Download-Telemetrie & Shader-Init-Progress (initProgressCallback)', () => {
+    // Simuliert Berichte des WebLLM-Laders während Modell-Download und Shader-Kompilierung
+    const reports = [
+        { text: 'Fetching model weights...', progress: 0.12 },
+        { text: 'Loading params...', progress: 0.584 },
+        { text: 'Compiling GPU shaders...', progress: 0.99 },
+        { text: 'Initializing engine...', progress: null }
+    ];
+
+    const updates = [];
+    for (const report of reports) {
+        appMock.simulateWebGPUProgress(report, (update) => updates.push(update));
+    }
+
+    assert.equal(updates.length, 4);
+    assert.equal(updates[0].label, 'WebGPU: 12%');
+    assert.equal(updates[0].percent, 12);
+    assert.equal(updates[1].label, 'WebGPU: 58%');
+    assert.equal(updates[1].percent, 58);
+    assert.equal(updates[2].label, 'WebGPU: 99%');
+    assert.equal(updates[2].percent, 99);
+    assert.equal(updates[3].label, 'WebGPU lädt...');
+    assert.equal(updates[3].percent, null);
+});
+
+test('41. WebGPU Ausweichmodell: OpenAI-kompatibles Streaming & Delta-Filterung (SmolLM2)', async () => {
+    // Simuliert eine echte MLC WebLLM Engine (SmolLM2-135M)
+    let passedOptions = null;
+    const mockMlcEngine = {
+        chat: {
+            completions: {
+                async create(options) {
+                    passedOptions = options;
+                    // Simuliert typische OpenAI/WebLLM Streaming Chunks inklusive leerer Start- und Stop-Chunks
+                    return (async function* () {
+                        // 1. Initialer Role-Chunk (ohne Content-Delta)
+                        yield { choices: [{ delta: { role: 'assistant' } }] };
+                        // 2. Token-Deltas
+                        yield { choices: [{ delta: { content: 'Hallo ' } }] };
+                        yield { choices: [{ delta: { content: 'vom ' } }] };
+                        yield { choices: [{ delta: { content: 'SmolLM2 ' } }] };
+                        yield { choices: [{ delta: { content: 'Ausweichmodell!' } }] };
+                        // 3. Stop-Chunk
+                        yield { choices: [{ delta: {}, finish_reason: 'stop' }] };
+                    })();
+                }
+            }
+        },
+        unload() { this.unloaded = true; }
+    };
+
+    const session = appMock.createWebGPUSessionAdapter(mockMlcEngine, "Du bist SmolLM2.");
+
+    // 41a. Prompt absenden und Stream konsumieren
+    const result = await appMock.simulateStreamResponse(session, "Wie heißt du?");
+
+    // 41b. Übergebene Parameter an WebLLM prüfen
+    assert.ok(passedOptions);
+    assert.equal(passedOptions.stream, true);
+    assert.equal(passedOptions.temperature, 0.6);
+    assert.equal(passedOptions.max_tokens, 1024);
+    assert.deepEqual(passedOptions.messages, [
+        { role: 'system', content: 'Du bist SmolLM2.' },
+        { role: 'user', content: 'Wie heißt du?' }
+    ]);
+
+    // 41c. Nur Nutzdaten-Deltas dürfen im Gesamttext landen (kein leeres "undefined")
+    assert.equal(result.fullResponse, "Hallo vom SmolLM2 Ausweichmodell!");
+    assert.equal(result.chunks.length, 4);
+    assert.ok(result.renderedHtml.includes("SmolLM2 Ausweichmodell!"));
+});
+
+test('42. WebGPU Ausweichmodell: VRAM-Freigabe & Lifecycle-Unload bei Session-Reset', () => {
+    let unloadCalled = false;
+    const mockMlcEngine = {
+        unload() {
+            unloadCalled = true;
+        }
+    };
+
+    const session = appMock.createWebGPUSessionAdapter(mockMlcEngine);
+    assert.equal(unloadCalled, false);
+
+    // Aufruf von destroy() muss das VRAM-Unload der Engine auslösen
+    session.destroy();
+    assert.equal(unloadCalled, true, 'session.destroy() muss engine.unload() aufrufen, um VRAM freizugeben');
+});
+
+test('43. WebGPU Ausweichmodell: Fehlerbehandlung bei GPU-Device-Lost oder Download-Abbruch', async () => {
+    // Simuliert einen Fehler beim Aufruf der Engine (z. B. Out of Memory oder WebGPU Context Lost)
+    const mockFailingEngine = {
+        chat: {
+            completions: {
+                async create() {
+                    throw new Error("WebGPU Device Lost: GPU-Treiber hat den Kontext zurückgesetzt");
+                }
+            }
+        },
+        unload() {}
+    };
+
+    const session = appMock.createWebGPUSessionAdapter(mockFailingEngine);
+
+    await assert.rejects(async () => {
+        await appMock.simulateStreamResponse(session, "Berechne etwas");
+    }, /WebGPU Device Lost/);
 });
 
 

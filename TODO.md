@@ -42,7 +42,7 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
 - [x] **Codesandbox-Erweiterung (Reset & Toggle):**
   Möglichkeit, geöffnete Sandboxes jederzeit mit `⏹ Schließen` einzuklappen und zu entladen (`srcdoc = ''`).
 - [x] **Automatisierte Testsuite & Validierungs-Harness (`tests/`):**
-  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 39/39 Tests grün) für:
+  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 43/43 Tests grün) für:
   - Markdown-Sanitization, XSS-Schutz & Token-Kollisionssicherheit
   - Syntax-Highlighting & HTML-Entity Immunität
   - Roundtrip Multi-Turn Export/Import & Kontext-Slicing (SAFE_INIT_CHARS)
@@ -73,6 +73,10 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   - **Multi-Turn Kontext:** Verlaufsspeicherung und formatierte Re-Injektion in Folgeprompts
   - **Robuste API-Initialisierung:** `create(options)`-Fallback bei Browser-Inkompatibilitäten
   - **Interaktions-Parität:** Einheitliches Verhalten von Chrome Gemini Nano und WebGPU SmolLM2
+  - **WebGPU Ausweichmodell-Download:** Telemetrie, Fortschrittsberechnung und Statusanzeige (`initProgressCallback`)
+  - **WebGPU Delta-Streaming:** OpenAI-kompatible Chunk-Transformation und Filterung leerer Start/Stop-Deltas
+  - **WebGPU VRAM-Freigabe:** `engine.unload()` über Session-Lifecycle
+  - **WebGPU Fehlertoleranz:** Exception-Handling bei Treiberabsturz (Device Lost) und Abbruch
 - [x] **Indirect Prompt Injection Abwehr & Data-Boundaries [v1.4.0]:**
   - Kapselung aller extern geladenen Webseiten- und Datei-Inhalte in strukturierte Sicherheits-Tags (`<untrusted_content source="..." type="...">`).
   - Expliziter System-Warnhinweis vor jedem externen Datenblock: Modell wird angewiesen, enthaltene Befehle strikt als passive Nutzlast zu behandeln.
