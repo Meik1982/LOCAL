@@ -1497,4 +1497,36 @@ test('43. WebGPU Ausweichmodell: Fehlerbehandlung bei GPU-Device-Lost oder Downl
     }, /WebGPU Device Lost/);
 });
 
+test('44. Modell-Generierung: Erstellung und Formatierung eines 2-Zeilers (Two-Liner Generation)', async () => {
+    // Simuliert das lokale Modell, das auf den Befehl "Schreibe einen kurzen 2-Zeiler über lokale KI" antwortet
+    const mockModelSession = {
+        async *promptStreaming(promptText) {
+            // Verifiziere, dass der Prompt ankommt
+            assert.ok(promptText.includes('2-Zeiler'), 'Prompt muss die 2-Zeiler-Instruktion enthalten');
+            yield "Kein Server lauscht, kein Netz funkt fern,\n";
+            yield "lokale Neuronen rechnen offline gern.";
+        }
+    };
+
+    const prompt = "Schreibe einen kurzen 2-Zeiler über lokale KI.";
+    const result = await appMock.simulateStreamResponse(mockModelSession, prompt);
+
+    // 44a. Validiere, dass der generierte Text exakt 2 Zeilen umfasst
+    const lines = result.fullResponse.trim().split(/\r?\n/).filter(l => l.trim().length > 0);
+    assert.equal(lines.length, 2, 'Die Modell-Antwort muss exakt aus 2 Zeilen bestehen');
+    assert.equal(lines[0], 'Kein Server lauscht, kein Netz funkt fern,');
+    assert.equal(lines[1], 'lokale Neuronen rechnen offline gern.');
+
+    // 44b. Validiere die gerenderte HTML-Darstellung (Zeilenumbruch muss als <br> erhalten bleiben)
+    assert.match(result.renderedHtml, /<br>/, 'Zeilenumbruch des 2-Zeilers muss im HTML als <br> dargestellt werden');
+    assert.ok(result.renderedHtml.includes('Kein Server lauscht, kein Netz funkt fern,'));
+    assert.ok(result.renderedHtml.includes('lokale Neuronen rechnen offline gern.'));
+
+    // 44c. Token- & Telemetrie-Validierung für den 2-Zeiler
+    assert.ok(result.fullResponse.length > 0, 'Zeichenlänge des 2-Zeilers muss positiv sein');
+    const telemetry = appMock.calculateContextTelemetry(null, result.fullResponse.length);
+    assert.ok(telemetry.badgeText.includes('Zch'), 'Heuristische Telemetrie muss Zeichenbasis anzeigen');
+    assert.ok(telemetry.tooltip.includes('Heuristik'));
+});
+
 
