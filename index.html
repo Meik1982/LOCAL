@@ -130,6 +130,7 @@
             font-weight: normal; background: #333; color: #aaa; display: inline-flex; align-items: center; gap: 4px;
         }
         .header-status-badge.status-ok { background: rgba(76, 175, 80, 0.2); color: #81c784; }
+        .header-status-badge.status-webgpu { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; }
         .header-status-badge.status-warn { background: rgba(251, 192, 45, 0.2); color: #fff59d; }
         .header-status-badge.status-err { background: rgba(244, 67, 54, 0.2); color: #e57373; }
 
@@ -339,6 +340,8 @@
         .diag-btn:hover { background: #3a3a3a; border-color: #666; }
         .diag-btn-primary { background: var(--accent-primary); border-color: var(--accent-primary); }
         .diag-btn-primary:hover { background: var(--accent-hover); }
+        .diag-btn-webgpu { background: #581c87; border-color: #9333ea; color: #f3e8ff; }
+        .diag-btn-webgpu:hover { background: #6b21a8; border-color: #c084fc; }
         
         /* Message Action Buttons */
         .msg-actions { display: flex; gap: 10px; margin-top: 5px; opacity: 0; transition: opacity 0.15s; }
@@ -701,7 +704,8 @@
 
             updateApiBadge(status, label) {
                 if (!this.dom.apiStatusBadge) return;
-                this.dom.apiStatusBadge.className = 'header-status-badge ' + (status === 'ok' ? 'status-ok' : status === 'warn' ? 'status-warn' : 'status-err');
+                const badgeClass = status === 'ok' ? 'status-ok' : status === 'webgpu' ? 'status-webgpu' : status === 'warn' ? 'status-warn' : 'status-err';
+                this.dom.apiStatusBadge.className = 'header-status-badge ' + badgeClass;
                 this.dom.apiStatusBadge.textContent = label;
             }
 
@@ -921,15 +925,23 @@
                         </div>
                     </div>
                     <div class="diag-actions">
-                        <button class="diag-btn diag-btn-primary" id="diag-btn-retry">🔄 Erneut prüfen</button>
+                        <button class="diag-btn diag-btn-primary" id="diag-btn-retry">🔄 Erneut prüfen (Chrome)</button>
+                        ${diag.hardware.hasWebGpu ? `<button class="diag-btn diag-btn-webgpu" id="diag-btn-webgpu">⚡ WebGPU-Fallback laden (~90 MB)</button>` : ''}
                         <button class="diag-btn" id="diag-btn-terminal">🛠️ Debug-Logs öffnen</button>
                     </div>
                 `;
 
                 card.querySelector('#diag-btn-retry').onclick = async () => {
                     card.remove();
-                    await this.connectToAI(true);
+                    await this.connectToAI(true, 'chrome_nano');
                 };
+                const webGpuBtn = card.querySelector('#diag-btn-webgpu');
+                if (webGpuBtn) {
+                    webGpuBtn.onclick = async () => {
+                        card.remove();
+                        await this.connectWebGPU(true);
+                    };
+                }
                 card.querySelector('#diag-btn-terminal').onclick = () => {
                     this.toggleDebugTerminal();
                 };
@@ -938,7 +950,11 @@
                 this.scrollToBottom();
             }
 
-            async connectToAI(withHistory = false) {
+            async connectToAI(withHistory = false, forceEngine = null) {
+                if (forceEngine === 'webgpu' || (this.state.activeEngine === 'webgpu' && forceEngine !== 'chrome_nano')) {
+                    return await this.connectWebGPU(withHistory);
+                }
+
                 this.debug('INFO', `Initialisiere KI (History-Modus: ${withHistory})`);
                 
                 if (this.state.session && typeof this.state.session.destroy === 'function') {
@@ -1007,6 +1023,7 @@
                         this.state.session = await api.create(fallbackOpt);
                     }
 
+                    this.state.activeEngine = 'chrome_nano';
                     this.dom.sendBtn.textContent = CONFIG.UI.BTN_SEND;
                     this.setUIState(true);
                     this.updateApiBadge('ok', 'Gemini Nano bereit');
@@ -1027,6 +1044,101 @@
                     } catch (diagErr) {
                         this.debug('ERROR', 'Diagnose-Generierungsfehler', diagErr.message);
                     }
+                }
+            }
+
+            async connectWebGPU(withHistory = false) {
+                if (typeof navigator === 'undefined' || !navigator.gpu) {
+                    alert("WebGPU wird von diesem Browser nicht unterstützt oder ist in den Einstellungen deaktiviert.");
+                    return;
+                }
+
+                this.debug('INFO', 'Starte WebGPU Fallback Initialisierung (SmolLM2-135M)...');
+                if (this.state.session && typeof this.state.session.destroy === 'function') {
+                    try { this.state.session.destroy(); } catch (e) {}
+                }
+                this.state.session = null;
+
+                this.dom.sendBtn.textContent = 'Lade WebGPU...';
+                this.setUIState(false);
+                this.updateApiBadge('warn', 'WebGPU lädt...');
+
+                try {
+                    const webllm = await import('https://esm.run/@mlc-ai/web-llm');
+                    
+                    const progressCallback = (report) => {
+                        this.debug('INFO', `WebGPU Init: ${report.text}`);
+                        const percent = report.progress ? Math.round(report.progress * 100) : null;
+                        const label = percent !== null ? `WebGPU: ${percent}%` : 'WebGPU lädt...';
+                        this.updateApiBadge('warn', label);
+                        this.dom.sendBtn.textContent = label;
+                    };
+
+                    const selectedModel = "SmolLM2-135M-Instruct-q4f16_1-MLC";
+                    const engine = await webllm.CreateMLCEngine(selectedModel, {
+                        initProgressCallback: progressCallback
+                    });
+
+                    let finalSystemPrompt = this.dom.sysPrompt.value.trim() || "Du bist ein hilfreicher, präziser KI-Assistent.";
+                    if (withHistory) {
+                        const wrappers = Array.from(this.dom.chatBox.querySelectorAll('.message-wrapper:not(.regenerating-skip)'));
+                        let historyText = "";
+                        let currentLength = finalSystemPrompt.length;
+                        for (let i = wrappers.length - 1; i >= 0; i--) {
+                            const role = wrappers[i].classList.contains('wrapper-user') ? "User" : "KI";
+                            const msgChunk = `${role}: ${wrappers[i].dataset.rawText}\n\n`;
+                            if (currentLength + msgChunk.length > CONFIG.SAFE_INIT_CHARS) break;
+                            historyText = msgChunk + historyText;
+                            currentLength += msgChunk.length;
+                        }
+                        if (historyText) finalSystemPrompt += `\n\nBisheriger Chatverlauf:\n${historyText}`;
+                    }
+
+                    this.state.session = {
+                        isWebGpu: true,
+                        maxTokens: 2048,
+                        tokensSoFar: 0,
+                        systemPrompt: finalSystemPrompt,
+                        async *promptStreaming(promptText) {
+                            const messages = [
+                                { role: "system", content: this.systemPrompt },
+                                { role: "user", content: promptText }
+                            ];
+                            const chunks = await engine.chat.completions.create({
+                                messages,
+                                stream: true,
+                                temperature: 0.6,
+                                max_tokens: 1024
+                            });
+                            for await (const chunk of chunks) {
+                                const delta = chunk.choices[0]?.delta?.content || "";
+                                if (delta) yield delta;
+                            }
+                        },
+                        async countPromptTokens(text) {
+                            return Math.ceil(text.length / 3.8);
+                        },
+                        destroy() {
+                            try { engine.unload(); } catch (e) {}
+                        }
+                    };
+
+                    this.state.activeEngine = 'webgpu';
+                    this.setUIState(true);
+                    this.dom.sendBtn.textContent = CONFIG.UI.BTN_SEND;
+                    this.updateApiBadge('webgpu', 'WebGPU: SmolLM2 bereit');
+                    this.updateContextBar();
+
+                    const oldCard = this.dom.chatBox.querySelector('.system-diagnostic-card');
+                    if (oldCard) oldCard.remove();
+
+                    this.addSysMessage("⚡ Lokale WebGPU-Engine (SmolLM2-135M) erfolgreich initialisiert.");
+                } catch (err) {
+                    this.debug('ERROR', 'WebGPU Fehler', err.message);
+                    this.addSysMessage("Fehler beim Laden der WebGPU-Engine: " + err.message);
+                    this.setUIState(true);
+                    this.dom.sendBtn.textContent = CONFIG.UI.BTN_ERROR;
+                    this.updateApiBadge('err', 'WebGPU Fehler');
                 }
             }
 

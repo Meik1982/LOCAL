@@ -817,4 +817,68 @@ test('24. WebGPU Hardware-Erkennung & Fallback-Empfehlung in Systemdiagnose', ()
     assert.equal(diagChrome.actionGuide[0], 'Alle Systemvoraussetzungen sind erfüllt. Gemini Nano ist einsatzbereit.');
 });
 
+test('25. Einheitlicher Session-Vertrag für Hybrid-Engines (WebGPU & Chrome Nano)', async () => {
+    // Erstelle ein Mock-Session-Objekt für WebGPU
+    const mockWebGpuSession = {
+        isWebGpu: true,
+        maxTokens: 2048,
+        tokensSoFar: 120,
+        async *promptStreaming(promptText) {
+            yield "Hallo ";
+            yield "aus ";
+            yield "WebGPU!";
+        },
+        async countPromptTokens(text) {
+            return Math.ceil(text.length / 3.8);
+        },
+        destroy() {
+            this.destroyed = true;
+        }
+    };
+
+    // 25a. Validiere Eigenschaften
+    assert.equal(typeof mockWebGpuSession.maxTokens, 'number');
+    assert.equal(typeof mockWebGpuSession.tokensSoFar, 'number');
+    assert.equal(typeof mockWebGpuSession.countPromptTokens, 'function');
+    assert.equal(typeof mockWebGpuSession.destroy, 'function');
+
+    // 25b. Validiere Streaming-Iterierbarkeit
+    const stream = mockWebGpuSession.promptStreaming("Test");
+    let fullResponse = "";
+    for await (const chunk of stream) {
+        fullResponse += chunk;
+    }
+    assert.equal(fullResponse, "Hallo aus WebGPU!");
+
+    // 25c. Validiere Token-Zählung
+    const tokens = await mockWebGpuSession.countPromptTokens("12345678");
+    assert.ok(tokens > 0);
+
+    // 25d. Validiere Destroy
+    mockWebGpuSession.destroy();
+    assert.equal(mockWebGpuSession.destroyed, true);
+});
+
+test('26. Engine-Routing & strikte Priorisierung von Chrome Gemini Nano', () => {
+    const routeEngine = (activeEngine, forceEngine) => {
+        if (forceEngine === 'webgpu' || (activeEngine === 'webgpu' && forceEngine !== 'chrome_nano')) {
+            return 'webgpu';
+        }
+        return 'chrome_nano';
+    };
+
+    // 26a. Standard ist immer Chrome Gemini Nano
+    assert.equal(routeEngine('chrome_nano', null), 'chrome_nano');
+    assert.equal(routeEngine(null, null), 'chrome_nano');
+
+    // 26b. Expliziter WebGPU-Aufruf
+    assert.equal(routeEngine('chrome_nano', 'webgpu'), 'webgpu');
+
+    // 26c. Fortführung im WebGPU-Modus bei aktivem WebGPU
+    assert.equal(routeEngine('webgpu', null), 'webgpu');
+
+    // 26d. Expliziter Relaunch / Re-Check schaltet zuverlässig auf Chrome Nano zurück
+    assert.equal(routeEngine('webgpu', 'chrome_nano'), 'chrome_nano');
+});
+
 

@@ -42,30 +42,33 @@ Der Controller kapselt den gesamten Applikationszustand in einer ES6-Klasse:
 
 ---
 
-## 3. Chrome Prompt API Adapter Layer
+## 3. Hybrid-Engine & Adapter Layer
 
-Die Spezifikation der Chrome Built-in AI (WICG Prompt API) befindet sich in stetiger Weiterentwicklung. Der Adapter in `LOCAL` abstrahiert Versionsunterschiede:
+`LOCAL` nutzt ein duales Engine-Modell mit strikter Priorisierung von nativer On-Device-Hardware:
 
 ```mermaid
-sequenceDiagram
-    participant App as AIChatApp
-    participant Adapter as Prompt API Adapter
-    participant Chrome as Chrome Engine (Gemini Nano)
-
-    App->>Adapter: connectToAI(withHistory)
-    Adapter->>Chrome: API-Erkennung (window.LanguageModel || window.ai.languageModel)
-    Adapter->>Chrome: checkAvailability(options)
-    Chrome-->>Adapter: 'readily' | 'after-download'
-    Adapter->>Chrome: create(options)
-    Chrome-->>Adapter: session handle
-    App->>Chrome: session.promptStreaming(prompt)
-    loop Token Streaming
-        Chrome-->>App: chunk
-        App->>App: requestAnimationFrame Batching
-    end
+graph TD
+    App[AIChatApp Controller] --> Router{Engine Router}
+    Router -->|Priorität 1: Chrome erkannt| Chrome[Chrome Prompt API: Gemini Nano]
+    Router -->|Opt-In Fallback: Non-Chrome / WebGPU| WebGPU[WebLLM: SmolLM2-135M]
+    Chrome --> Stream[Einheitlicher AsyncIterable Stream]
+    WebGPU --> Stream
+    Stream --> RAF[requestAnimationFrame Batching]
+    RAF --> DOM[DOM UI Renderer]
 ```
 
-### Frame-gebündeltes Streaming
+### 3.1 Die Priorität-1 Garantie für Google Chrome (Gemini Nano)
+Befindet sich der Anwender in Google Chrome oder Chrome Canary mit aktivierter Prompt API, läuft die Anwendung zu 100 % über die native C++-Engine des Browsers:
+- **0 Byte Netzwerklast:** Kein Herunterladen externer Bundles, Bibliotheken oder Gewichte.
+- **Volle Telemetrie:** Direkte Abfrage synchroner Hardware-Properties (`tokensSoFar`, `maxTokens`).
+
+### 3.2 Der Opt-In WebGPU Fallback (WebLLM)
+In Nicht-Chromium-Browsern (Firefox, Safari) oder bei fehlenden Chrome-Flags ermittelt die Systemdiagnose das Vorhandensein von `navigator.gpu`.
+- **On-Demand ESM-Import:** Erst nach explizitem Klick auf *„⚡ WebGPU-Fallback laden“* wird `@mlc-ai/web-llm` dynamisch nachgeladen.
+- **Kompaktes Modell:** Nutzung von `SmolLM2-135M-Instruct-q4f16_1-MLC` (~90 MB), welches automatisch in der browserinternen Cache/IndexedDB persistiert wird.
+- **Einheitlicher Session-Vertrag:** Der WebGPU-Adapter kapselt das OpenAI-kompatible Streaming in dieselbe Async-Generator-Schnittstelle (`promptStreaming()`), sodass Chatverlauf, UI-Batching und Kontext-Zählung ohne Sonderbehandlung weiterarbeiten.
+
+### 3.3 Frame-gebündeltes Streaming
 Um UI-Freezes und *Layout-Thrashing* bei hochfrequenten Token-Streams zu verhindern, werden eintreffende Chunks akkumuliert und über `requestAnimationFrame` gebündelt in das DOM gerendert.
 
 ### 3.1 System-Diagnose & Troubleshooting State Machine

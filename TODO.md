@@ -42,7 +42,7 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
 - [x] **Codesandbox-Erweiterung (Reset & Toggle):**
   Möglichkeit, geöffnete Sandboxes jederzeit mit `⏹ Schließen` einzuklappen und zu entladen (`srcdoc = ''`).
 - [x] **Automatisierte Testsuite & Validierungs-Harness (`tests/`):**
-  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 23/23 Tests grün) für:
+  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 26/26 Tests grün) für:
   - Markdown-Sanitization, XSS-Schutz & Token-Kollisionssicherheit
   - Syntax-Highlighting & HTML-Entity Immunität
   - Roundtrip Multi-Turn Export/Import & Kontext-Slicing (SAFE_INIT_CHARS)
@@ -57,42 +57,20 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   - Strukturierter Markdown-Export (`.md`) mit Headings, Zitaten und Codeblöcken
   - Maschinenlesbarer JSON-Export (`.json`) mit Timestamps und Rollen
   - Persona-Presets & Zwei-Wege-Synchronisation mit Freitextfeld
-- [x] **Cross-Platform Hotkey Support:**
-  Unterstützung von `Cmd` (MetaKey) für macOS bei allen Tastenkombinationen (`Cmd+D`, `Cmd+B`, `Cmd+S`, `Cmd+O`, `Cmd+L`, `Cmd+M`).
-- [x] **Lückenlose Dokumentation:**
-  Korrektur des Dateinamens im `README.md` (`index.html` und Symlink `chat.html`), Hinzufügen von `ARCHITECTURE.md` und sauberen JSDoc-Kommentaren im Quelltext.
-- [x] **Echte Token-Zählung via Chrome Prompt API:**
-  Zweistufige Telemetrie mit synchroner Abfrage von `tokensSoFar` / `maxTokens` und debounctem asynchronen `countPromptTokens()`. Direkte Visualisierung im Header-Badge (`📊 X / Y Tok (Z%)`) und robuster Zeichen-Heuristik-Fallback.
-- [x] **Automatisierte Systemdiagnose & Onboarding-Troubleshooter (Windows / macOS / Linux):**
-  Interaktive Diagnose-Engine (`checkSystemEnvironment()` / `evaluateDiagnosis()`):
-  - Automatische Identifikation des Ursachenzustands (`NO_FLAGS`, `NEEDS_DOWNLOAD`, `PERF_OR_STORAGE_BLOCKED`, `NON_CHROMIUM`, `READY`).
-  - Spezifische Handlungsanleitungen für Windows (Laufwerk C: Speicherplatz, `chrome://components` Optimization Guide Update, `Enabled BypassPerfRequirement`, Metered Connection).
-  - Interaktive Diagnose-Karte im Chat mit Checkliste, Re-Test-Button (`🔄 Erneut prüfen`) und Button zum Öffnen des Debug-Terminals.
-  - Diagnose per Klick auf die Status-Pille im Header oder über den Diagnose-Button im Persona-Panel jederzeit abrufbar.
-  - Vollständige Regressionstest-Abdeckung in `tests/test_local.js` (23/23 Tests grün).
-- [x] **Erweiterte Export-Formate (Markdown, JSON & Text-Backup) [v1.3.0]:**
-  - Dropdown-Menü beim Klick auf 💾 oder per Tastenkombination `Strg+S / Cmd+S`.
-  - **Markdown (`.md`):** Sauber formatierter Text mit Chat-Titel, Metadaten-Header, System-Prompt-Zitatblock, Autorenbeschriftungen (`👤 Du`, `🤖 Gemini Nano`) und unversehrten Codeblöcken (ideal für Obsidian, Notion, GitHub).
-  - **JSON (`.json`):** Strukturierter Export mit Metadaten, Session-ID, Session-Titel, System-Prompt, Timestamps und Rollen (`user`, `assistant`, `system`).
-  - **Text-Backup (`.txt`):** Originales Export-Format für 100 % kompatiblen Re-Import via `📂`.
-- [x] **System-Prompt Presets (Persona-Vorlagen) [v1.3.0]:**
-  - Schnellwahl-Dropdown im Einstellungen-Panel für kuratierte Experten-Rollen:
-    - *Standard (Präzise & Sachlich)*
-    - *Systems & Code-Reviewer (C/Rust/Linux)*
-    - *Technischer Auditor & Sicherheits-Prüfer*
-    - *Kritischer Sparringspartner (Architektur & Logik)*
-    - *Minimalist (Nur Fakten & Code)*
-  - Intelligente Zwei-Wege-Synchronisation: Manuelle Anpassung schaltet automatisch auf `custom` um; exakter Match synchronisiert das Dropdown zurück.
-  - Persistierung in `localStorage` (`nano_chat_settings_v1`).
+  - WebGPU Hardware-Erkennung (`navigator.gpu`) & Fallback-Matrix
+  - Einheitlicher Streaming-Session-Vertrag für Hybrid-Engines (`promptStreaming`, `destroy`, Tokens)
+  - Engine-Routing mit striktem Vorrang für native Chrome Prompt API
+- [x] **Wasm / WebGPU Hybrid-Engine (Opt-In Fallback):**
+  - **Chrome Prompt API bleibt strikte Priorität 1:** In Google Chrome wird weder externer Code noch Modellgewichte geladen (0 Byte Overhead, 100 % nativer Pfad).
+  - **Bedarfsgesteuerter Fallback (Opt-In):** Ausschließlich bei fehlender Prompt API (Firefox, Safari, unkonfigurierter Chromium) bietet die Diagnose-Karte bei erkannter WebGPU-Hardware den Button *„⚡ WebGPU-Fallback laden (~90 MB)“*.
+  - **Dynamischer ESM-Import:** Lädt WebLLM (`@mlc-ai/web-llm`) und das leichtgewichtige `SmolLM2-135M-Instruct-q4f16_1-MLC` mit Live-Download-Fortschritt im Header-Badge.
+  - **Einheitlicher Session-Adapter:** Kapselt das OpenAI-kompatible Streaming von WebLLM in dasselbe Async-Iterable-Interface (`promptStreaming`) wie die Chrome Prompt API – UI, Chat-History und Context-Bar arbeiten transparent weiter.
+  - **Transparente UI-Farbkodierung:** `🟢 Gemini Nano bereit` (nativ grün) vs. `🟣 WebGPU: SmolLM2 bereit` (Fallback lila).
 
 ---
 
 ## 3. Zukünftige Optimierungspotenziale (Backlog – nach Priorität sortiert)
 
-### Priorität 1 (Mittel): Wasm / WebGPU Fallback (Hybrid-Engine)
-- [ ] **Plattformunabhängige In-Browser-KI via WebGPU:**
-  Optionale Integration einer WebGPU/Wasm-Engine (z. B. WebLLM / transformers.js mit SmolLM oder Qwen) als automatischer Fallback für Browser ohne native Chrome Prompt API (Firefox, Safari, Chromium-Forks).
-
-### Priorität 2 (Optional / Nachgelagert): Offline PWA & Service Worker
+### Priorität 1 (Optional / Nachgelagert): Offline PWA & Service Worker
 - [ ] **Installierbare Desktop-App (Progressive Web App):**
   Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching aller Assets (Icons, HTML, CSS, JS) bei Bereitstellung über `http://localhost`. Ermöglicht die Installation als Desktop-App mit eigenem Fenster.
