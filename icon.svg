@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1e2f"/>
+    </linearGradient>
+    <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Icon Tile -->
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96" fill="url(#bgGrad)" stroke="#334155" stroke-width="8"/>
+
+  <!-- Neural Core Network -->
+  <g filter="url(#glow)" stroke="url(#aiGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Center Hexagon / Chip -->
+    <polygon points="256,160 336,206 336,298 256,344 176,298 176,206" />
+    
+    <!-- Connection Rays -->
+    <line x1="256" y1="160" x2="256" y2="100" />
+    <line x1="336" y1="206" x2="396" y2="170" />
+    <line x1="336" y1="298" x2="396" y2="334" />
+    <line x1="256" y1="344" x2="256" y2="404" />
+    <line x1="176" y1="298" x2="116" y2="334" />
+    <line x1="176" y1="206" x2="116" y2="170" />
+
+    <!-- Core Cross -->
+    <line x1="216" y1="252" x2="296" y2="252" />
+    <line x1="256" y1="212" x2="256" y2="292" />
+  </g>
+
+  <!-- Outer Neural Nodes -->
+  <circle cx="256" cy="100" r="14" fill="#38bdf8" />
+  <circle cx="396" cy="170" r="14" fill="#60a5fa" />
+  <circle cx="396" cy="334" r="14" fill="#a855f7" />
+  <circle cx="256" cy="404" r="14" fill="#c084fc" />
+  <circle cx="116" cy="334" r="14" fill="#a855f7" />
+  <circle cx="116" cy="170" r="14" fill="#38bdf8" />
+
+  <!-- Center Core Node -->
+  <circle cx="256" cy="252" r="18" fill="#38bdf8" />
+</svg>

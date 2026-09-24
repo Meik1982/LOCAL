@@ -1,6 +1,6 @@
 {
   "name": "local-chat",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "LOCAL (Lokale Offline Chat Anwendungs-Logik): Zero-Dependency In-Browser Chat mit Chrome Gemini Nano",
   "main": "index.html",
   "scripts": {

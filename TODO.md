@@ -42,7 +42,7 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
 - [x] **Codesandbox-Erweiterung (Reset & Toggle):**
   Möglichkeit, geöffnete Sandboxes jederzeit mit `⏹ Schließen` einzuklappen und zu entladen (`srcdoc = ''`).
 - [x] **Automatisierte Testsuite & Validierungs-Harness (`tests/`):**
-  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 30/30 Tests grün) für:
+  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 33/33 Tests grün) für:
   - Markdown-Sanitization, XSS-Schutz & Token-Kollisionssicherheit
   - Syntax-Highlighting & HTML-Entity Immunität
   - Roundtrip Multi-Turn Export/Import & Kontext-Slicing (SAFE_INIT_CHARS)
@@ -64,17 +64,32 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   - UI-Telemetrie & Badge-Status Farbkodierung (Grün für Chrome Nano, Lila für WebGPU, Gelb, Rot)
   - Session-Lifecycle & GPU/RAM-Leak-Prävention bei Engine-Wechsel (`session.destroy()`)
   - WebGPU Token-Budgetierung & dynamisches Kontext-Slicing (Sicherheitsgrenzen für 2048 Tokens)
-- [x] **Wasm / WebGPU Hybrid-Engine (Opt-In Fallback):**
-  - **Chrome Prompt API bleibt strikte Priorität 1:** In Google Chrome wird weder externer Code noch Modellgewichte geladen (0 Byte Overhead, 100 % nativer Pfad).
-  - **Bedarfsgesteuerter Fallback (Opt-In):** Ausschließlich bei fehlender Prompt API (Firefox, Safari, unkonfigurierter Chromium) bietet die Diagnose-Karte bei erkannter WebGPU-Hardware den Button *„⚡ WebGPU-Fallback laden (~90 MB)“*.
-  - **Dynamischer ESM-Import:** Lädt WebLLM (`@mlc-ai/web-llm`) und das leichtgewichtige `SmolLM2-135M-Instruct-q4f16_1-MLC` mit Live-Download-Fortschritt im Header-Badge.
-  - **Einheitlicher Session-Adapter:** Kapselt das OpenAI-kompatible Streaming von WebLLM in dasselbe Async-Iterable-Interface (`promptStreaming`) wie die Chrome Prompt API – UI, Chat-History und Context-Bar arbeiten transparent weiter.
-  - **Transparente UI-Farbkodierung:** `🟢 Gemini Nano bereit` (nativ grün) vs. `🟣 WebGPU: SmolLM2 bereit` (Fallback lila).
+  - Indirect Prompt Injection Schutz & Data-Boundary Kapselung (`wrapUntrustedContent`)
+  - PWA Web-App-Manifest Validierung (`manifest.json` und Icon-Auflösung)
+  - PWA Service Worker Cache-Strategie & Asset-Integrität (`sw.js`)
+- [x] **Indirect Prompt Injection Abwehr & Data-Boundaries [v1.4.0]:**
+  - Kapselung aller extern geladenen Webseiten- und Datei-Inhalte in strukturierte Sicherheits-Tags (`<untrusted_content source="..." type="...">`).
+  - Expliziter System-Warnhinweis vor jedem externen Datenblock: Modell wird angewiesen, enthaltene Befehle strikt als passive Nutzlast zu behandeln.
+  - Neutralisierung potenzieller Escape-Versuche (Maskierung innerer `</untrusted_content>`-Tags) und Bereinigung von Attribut-Injektionen.
+- [x] **Installierbare Progressive Web App (PWA & Offline-First) [v1.4.0]:**
+  - **`manifest.json`:** Ermöglicht die Installation von `LOCAL` als eigenständige Desktop-App ohne Browser-URL-Leiste (`display: standalone`).
+  - **`icon.svg`:** Vektor-App-Icon (512x512) im einheitlichen Neural-Core-Design (Cyan/Lila mit Slate-Hintergrund).
+  - **`sw.js`:** Schlanker Service Worker mit Cache-First- und Stale-While-Revalidate-Strategie für alle lokalen Kern-Assets (`index.html`, `manifest.json`, `icon.svg`).
+  - **Robuster Guard:** Service-Worker-Registrierung wird nur bei `http:` / `https:` ausgeführt; kein Fehleraufkommen bei lokalem Doppelklick (`file://`).
+  - Vollständige Offline-Lauffähigkeit bei lokalem Webserver (`http://localhost`).
 
 ---
 
 ## 3. Zukünftige Optimierungspotenziale (Backlog – nach Priorität sortiert)
 
-### Priorität 1 (Optional / Nachgelagert): Offline PWA & Service Worker
-- [ ] **Installierbare Desktop-App (Progressive Web App):**
-  Bereitstellung eines `manifest.json` und eines Service Workers zum vollständigen Caching aller Assets (Icons, HTML, CSS, JS) bei Bereitstellung über `http://localhost`. Ermöglicht die Installation als Desktop-App mit eigenem Fenster.
+### Priorität 1: Modellauswahl & VRAM-Stufen für WebGPU
+- [ ] **Optionale Modell-Presets im Einstellungen-Panel:**
+  Ermöglicht Nutzern mit dedizierter Grafikkarte die Wahl zwischen `SmolLM2-135M` (Standard, ultrakompakt) und größeren Modellen wie `SmolLM2-360M` oder `Qwen2.5-0.5B`.
+
+### Priorität 2: Erweiterte Tastatur-Navigation & a11y
+- [ ] **Barrierefreiheit & Escape-Handling:**
+  `Escape`-Taste zum Schließen von Modals, Dropdowns und Sandboxes; automatischer Fokus-Rücksprung ins Textfeld.
+
+### Priorität 3: Druck- / PDF-Export
+- [ ] **Clean Print-CSS (`window.print()`):**
+  Druckoptimiertes Stylesheet zum sauberen PDF-Export ohne UI-Buttons, Header oder Sidebar.

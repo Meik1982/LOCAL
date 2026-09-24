@@ -133,6 +133,13 @@ Code-Snippets können direkt im Chat ausgeführt werden:
 Browser begrenzen den `localStorage` in der Regel auf 5 bis 10 MB. Bei Überschreitung wirft der Browser einen `QuotaExceededError`. 
 `saveSessionsToStorage()` fängt diesen Fehler ab, verhindert Dateninkonsistenzen und informiert den Anwender im Chat über den vollen Speicher.
 
+### 5.4 Indirect Prompt Injection Abwehr & Data-Boundaries
+Beim Einbinden externer Webseiten (über den CORS-Proxy) oder lokaler Datei-Uploads besteht das Risiko, dass manipulierte Fremddaten Instruktionen enthalten, die das On-Device-Modell kapern wollen (Indirect Prompt Injection).
+`LOCAL` schirmt den Befehlskanal strikt vom Datenkanal ab:
+1. **Sicherheits-Tags:** Jeder Fremdinhalt wird durch `wrapUntrustedContent()` in isolierte `<untrusted_content source="..." type="...">` Tags eingefasst.
+2. **System-Warnhinweis:** Dem Datenblock wird eine unmissverständliche Instruktion vorangestellt, die das Modell anweist, den umschlossenen Inhalt ausschließlich als passive Daten und niemals als ausführbare Steuerbefehle zu behandeln.
+3. **Delimiter-Immunität:** Schließende Tags (`</untrusted_content>`) innerhalb des Fremdtextes werden vor der Prompt-Komposition neutralisiert (`<\ /untrusted_content>`), sodass ein Ausbrechen aus dem Datenbereich technisch unmöglich ist.
+
 ---
 
 ## 6. Daten- und Speicherformate
@@ -164,3 +171,19 @@ Antwort der lokalen KI...
 
 ### 6.2 Persona-Presets & Zwei-Wege-Synchronisation
 Im Einstellungs-Panel (`⚙️ Persona`) stehen kuratierte System-Prompts für unterschiedliche Rollen bereit (Systems-Programmierer, Auditor, Sparringspartner, Minimalist). Eine Zwei-Wege-Synchronisation gleicht Änderungen im Freitextfeld dynamisch mit dem Dropdown ab (automatischer Umschwung auf `custom` bei manueller Abweichung).
+
+---
+
+## 7. Progressive Web App (PWA) & Offline-Infrastruktur
+
+Ab Version `v1.4.0` ist `LOCAL` als vollwertige, installierbare Desktop- und Mobile-App (PWA) ausgelegt:
+
+### 7.1 Web App Manifest (`manifest.json`)
+- **App-Modus:** Definiert mit `display: standalone` für eine ablenkungsfreie Arbeitsumgebung ohne Adressleiste oder Browser-Bedienelemente.
+- **Theming:** Dunkles Schema (`#0f172a` Background, `#1e293b` Theme Color).
+- **Maskable Vector Icon:** Vektor-basiertes `icon.svg` (512x512) für scharfe Skalierung auf High-DPI-Monitoren.
+
+### 7.2 Service Worker (`sw.js`)
+- **Stale-While-Revalidate Strategie:** Lokale Anwendungsdateien (`index.html`, `manifest.json`, `icon.svg`) werden aus dem Cache ausgeliefert, während im Hintergrund bei Netzverbindung ein Update-Check erfolgt.
+- **Bypass für externe Schnittstellen:** Externe Anfragen (CORS-Proxy, WebLLM CDN-Downloads) passieren den Service Worker unberührt und belasten nicht den Offline-Cache.
+- **Origin- & Protocol-Guards:** Die Registrierung wird nur unter `http://` und `https://` ausgeführt. Ein Aufruf via `file://` bleibt fehlerfrei und blockiert keine Funktionalitäten.
