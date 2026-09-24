@@ -423,6 +423,72 @@ const appMock = {
             }
         }
         return false;
+    },
+    async simulateStreamResponse(session, prompt, options = {}) {
+        const stream = session.promptStreaming(prompt);
+        let fullResponse = '';
+        let isAborted = false;
+        const chunks = [];
+
+        try {
+            for await (const chunk of stream) {
+                if (options.shouldAbort && options.shouldAbort(chunks.length, fullResponse)) {
+                    isAborted = true;
+                    break;
+                }
+                chunks.push(chunk);
+                fullResponse += chunk;
+                if (options.onChunk) {
+                    options.onChunk(chunk, fullResponse);
+                }
+            }
+        } catch (err) {
+            if (options.onError) {
+                options.onError(err);
+            }
+            throw err;
+        } finally {
+            if (options.onFinish) {
+                options.onFinish({ fullResponse, isAborted, chunksCount: chunks.length });
+            }
+        }
+
+        return {
+            fullResponse,
+            isAborted,
+            chunks,
+            renderedHtml: this.parseMarkdown(fullResponse)
+        };
+    },
+    async simulateModelInit(api, systemPrompt, options = {}) {
+        const fullOptions = {
+            expectedInputs: [{ type: 'text', languages: ['en', 'de'] }],
+            expectedOutputs: [{ type: 'text', languages: ['en', 'de'] }]
+        };
+        if (systemPrompt) fullOptions.systemPrompt = systemPrompt;
+
+        let session;
+        let usedFallback = false;
+        try {
+            session = await api.create(fullOptions);
+        } catch (err) {
+            usedFallback = true;
+            const fallbackOpt = systemPrompt ? { systemPrompt } : {};
+            session = await api.create(fallbackOpt);
+        }
+        return { session, usedFallback };
+    },
+    async simulateMultiTurnChat(session, prompts) {
+        const turns = [];
+        for (const prompt of prompts) {
+            const result = await this.simulateStreamResponse(session, prompt);
+            turns.push({
+                prompt,
+                response: result.fullResponse,
+                renderedHtml: result.renderedHtml
+            });
+        }
+        return turns;
     }
 };
 
@@ -1076,6 +1142,211 @@ test('33. PWA Service Worker Cache-Strategie & Asset-Integrität (sw.js)', () =>
 
     // 33d. Schutz vor unberechtigtem Caching von externen Proxies/APIs
     assert.ok(swSource.includes('url.origin !== self.location.origin'), 'Muss Third-Party / Proxy Requests vom Offline-Cache ausnehmen');
+});
+
+test('34. Modell-Streaming Interaktion (Inkrementelle Token-Chunks & Markdown-Rendering)', async () => {
+    // Simuliere echtes lokales Modell (z. B. Chrome Gemini Nano Prompt API)
+    const mockModelSession = {
+        async *promptStreaming(promptText) {
+            yield "Hallo ";
+            yield "Welt!\n\n";
+            yield "Hier ist ein `Code-Snippet`: ";
+            yield "console.log(42);";
+        }
+    };
+
+    const receivedChunks = [];
+    let progressUpdates = 0;
+
+    const result = await appMock.simulateStreamResponse(mockModelSession, "Sag Hallo", {
+        onChunk: (chunk, accumulated) => {
+            receivedChunks.push(chunk);
+            progressUpdates++;
+        }
+    });
+
+    // 34a. Validiere Chunks-Empfang
+    assert.equal(receivedChunks.length, 4);
+    assert.equal(progressUpdates, 4);
+    assert.equal(result.isAborted, false);
+
+    // 34b. Validiere vollständige Antwort
+    assert.equal(result.fullResponse, "Hallo Welt!\n\nHier ist ein `Code-Snippet`: console.log(42);");
+
+    // 34c. Validiere Markdown-Pipeline auf gestreamtem Text
+    assert.match(result.renderedHtml, /<code class="inline-code">Code-Snippet<\/code>/);
+    assert.match(result.renderedHtml, /Hallo Welt!/);
+});
+
+test('35. Interaktions-Abbruch durch den Nutzer (Abort-Handling & Teilergebnis-Erhalt)', async () => {
+    // Simuliert einen langen Text-Stream
+    const mockLongStream = {
+        async *promptStreaming(promptText) {
+            yield "Teil 1: Analyse gestartet...\n";
+            yield "Teil 2: Speicher wird geprüft...\n";
+            yield "Teil 3: CPU-Auslastung hoch...\n";
+            yield "Teil 4: Netzwerk-Verbindung aktiv...\n";
+            yield "Teil 5: Abschluss-Bericht.";
+        }
+    };
+
+    // Nutzer drückt nach 2 Chunks auf "Stopp"
+    const result = await appMock.simulateStreamResponse(mockLongStream, "Analysiere System", {
+        shouldAbort: (chunkCount, currentText) => {
+            return chunkCount >= 2;
+        }
+    });
+
+    // 35a. Abort-Status muss true sein
+    assert.equal(result.isAborted, true);
+
+    // 35b. Es dürfen nur genau die ersten 2 Chunks konsumiert worden sein
+    assert.equal(result.chunks.length, 2);
+    assert.equal(result.fullResponse, "Teil 1: Analyse gestartet...\nTeil 2: Speicher wird geprüft...\n");
+
+    // 35c. Kein Datenverlust: Der Teilstrom wurde ordnungsgemäß gerendert
+    assert.ok(result.renderedHtml.includes("Teil 1: Analyse gestartet"));
+    assert.ok(!result.fullResponse.includes("Teil 3"));
+    assert.ok(!result.fullResponse.includes("Teil 5"));
+});
+
+test('36. Fehlerbehandlung während der Modell-Generierung (Stream-Exception & UI-Entsperrung)', async () => {
+    const mockFailingSession = {
+        async *promptStreaming(promptText) {
+            yield "Starte Berechnung...\n";
+            throw new Error("Modell-Prozess unerwartet beendet (Out of Memory / Context Overflow)");
+        }
+    };
+
+    let caughtError = null;
+    let finishTriggered = false;
+
+    await assert.rejects(async () => {
+        await appMock.simulateStreamResponse(mockFailingSession, "Große Anfrage", {
+            onError: (err) => {
+                caughtError = err;
+            },
+            onFinish: (state) => {
+                finishTriggered = true; // Stellt sicher, dass das UI im finally-Block entsperrt wird
+            }
+        });
+    }, /Modell-Prozess unerwartet beendet/);
+
+    // 36a. Fehler wurde sauber erfasst
+    assert.ok(caughtError);
+    assert.match(caughtError.message, /Out of Memory/);
+
+    // 36b. Finally-Garantie: UI-Entsperrung / onFinish MUSS trotz Stream-Fehler laufen
+    assert.equal(finishTriggered, true, "onFinish muss zwingend aufgerufen werden, um UI-Deadlocks zu verhindern");
+});
+
+test('37. Multi-Turn Dialog-Akkumulation & Kontext-Übergabe an das Modell', async () => {
+    // Simuliert ein Modell, das auf mehrere Dialogschritte antwortet
+    const responses = [
+        "Hallo Meik! Wie kann ich dich heute bei Systems-Programmierung unterstützen?",
+        "Alles klar, CachyOS mit Linux-Kernel 7.2.6 bietet modernste Scheduling- und I/O-Eigenschaften."
+    ];
+    let callIdx = 0;
+
+    const mockSession = {
+        async *promptStreaming(promptText) {
+            yield responses[callIdx++] || "OK";
+        }
+    };
+
+    const turns = await appMock.simulateMultiTurnChat(mockSession, [
+        "Hallo, ich bin Meik.",
+        "Ich nutze CachyOS auf meinem Test-Host."
+    ]);
+
+    // 37a. Zwei Turns wurden erfolgreich verarbeitet
+    assert.equal(turns.length, 2);
+    assert.equal(turns[0].prompt, "Hallo, ich bin Meik.");
+    assert.ok(turns[0].response.includes("Hallo Meik"));
+    assert.equal(turns[1].prompt, "Ich nutze CachyOS auf meinem Test-Host.");
+    assert.ok(turns[1].response.includes("CachyOS"));
+
+    // 37b. Verifiziere Kontext-Formatierung für den nächsten Modell-Start
+    const wrappers = turns.map(t => ([
+        { role: 'user', rawText: t.prompt },
+        { role: 'assistant', rawText: t.response }
+    ])).flat();
+
+    const formattedHistory = appMock.filterHistoryForConnect(wrappers);
+    assert.ok(formattedHistory.includes("User: Hallo, ich bin Meik."));
+    assert.ok(formattedHistory.includes("KI: Hallo Meik"));
+    assert.ok(formattedHistory.includes("User: Ich nutze CachyOS"));
+    assert.ok(formattedHistory.includes("KI: Alles klar, CachyOS"));
+});
+
+test('38. Robuste Modell-Initialisierung & Fallback bei Browser-Inkompatibilität (create options)', async () => {
+    // Fall A: Moderner Chrome mit vollem Options-Support
+    const modernApi = {
+        async create(opts) {
+            if (opts.expectedInputs && opts.expectedOutputs) {
+                return { id: 'modern-nano-session', opts };
+            }
+            throw new Error("Fehlende Optionen");
+        }
+    };
+
+    const resA = await appMock.simulateModelInit(modernApi, "Du bist ein Helfer.");
+    assert.equal(resA.usedFallback, false);
+    assert.equal(resA.session.id, 'modern-nano-session');
+    assert.equal(resA.session.opts.systemPrompt, "Du bist ein Helfer.");
+
+    // Fall B: Älterer / restriktiver Chrome wirft TypeError bei expectedInputs
+    const legacyApi = {
+        async create(opts) {
+            if (opts.expectedInputs) {
+                throw new TypeError("Failed to execute 'create' on 'LanguageModel': unexpected dictionary key 'expectedInputs'");
+            }
+            return { id: 'legacy-nano-session', opts };
+        }
+    };
+
+    const resB = await appMock.simulateModelInit(legacyApi, "Du bist ein Helfer.");
+    assert.equal(resB.usedFallback, true);
+    assert.equal(resB.session.id, 'legacy-nano-session');
+    assert.equal(resB.session.opts.systemPrompt, "Du bist ein Helfer.");
+    assert.equal(resB.session.opts.expectedInputs, undefined);
+});
+
+test('39. Modell-Interaktions-Parität: Chrome Gemini Nano vs. WebGPU Engine', async () => {
+    // Gemini Nano Mock
+    const nanoSession = {
+        engine: 'chrome_nano',
+        async *promptStreaming(prompt) {
+            yield "Antwort von ";
+            yield "Gemini Nano.";
+        },
+        destroy() { this.destroyed = true; }
+    };
+
+    // WebGPU SmolLM2 Mock
+    const webGpuSession = {
+        engine: 'webgpu',
+        async *promptStreaming(prompt) {
+            yield "Antwort von ";
+            yield "WebGPU SmolLM2.";
+        },
+        destroy() { this.destroyed = true; }
+    };
+
+    // Teste beide Engines über dieselbe Interaktions-Schicht
+    const nanoRes = await appMock.simulateStreamResponse(nanoSession, "Test 1");
+    const webGpuRes = await appMock.simulateStreamResponse(webGpuSession, "Test 2");
+
+    assert.equal(nanoRes.fullResponse, "Antwort von Gemini Nano.");
+    assert.equal(webGpuRes.fullResponse, "Antwort von WebGPU SmolLM2.");
+
+    // Beide müssen sauberes HTML erzeugen
+    assert.ok(nanoRes.renderedHtml.includes("Gemini Nano"));
+    assert.ok(webGpuRes.renderedHtml.includes("WebGPU SmolLM2"));
+
+    // Beide müssen destroy() fehlerfrei unterstützen
+    assert.equal(appMock.cleanupSession(nanoSession), true);
+    assert.equal(appMock.cleanupSession(webGpuSession), true);
 });
 
 
