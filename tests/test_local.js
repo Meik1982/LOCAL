@@ -215,6 +215,7 @@ const appMock = {
             : (env.hasWindowAiLanguageModel ? 'window.ai.languageModel (Early Draft)' : null);
 
         const avail = env.availability || null;
+        const hasWebGpu = !!env.hasWebGpu;
         let diagnosisState = 'UNKNOWN';
         let actionGuide = [];
 
@@ -222,7 +223,10 @@ const appMock = {
             diagnosisState = 'NON_CHROMIUM';
             actionGuide = [
                 `Du verwendest aktuell ${browserName}. Die lokale Gemini Nano Prompt API wird derzeit nativ nur in Chromium-basierten Browsern (vorrangig Google Chrome / Chrome Canary) unterstützt.`,
-                'Bitte öffne die Anwendung in Google Chrome (ab Version 128+) oder Chrome Canary.'
+                hasWebGpu 
+                    ? 'WebGPU Hardware-Beschleunigung ist auf deinem System verfügbar (bereit für In-Browser Wasm/WebGPU-Fallbacks).'
+                    : 'WebGPU Hardware-Beschleunigung ist in diesem Browser nicht aktiv oder wird nicht unterstützt.',
+                'Für das beste Offline-Erlebnis mit Gemini Nano öffne die Anwendung in Google Chrome (ab Version 128+) oder Chrome Canary.'
             ];
         } else if (!hasApi) {
             diagnosisState = 'NO_FLAGS';
@@ -232,6 +236,9 @@ const appMock = {
                 '2. Öffne <code>chrome://flags/#optimization-guide-on-device-model</code> und setze auf <b>Enabled BypassPerfRequirement</b>.',
                 '3. Starte Chrome komplett neu über die Schaltfläche <b>Relaunch</b> ganz unten.'
             ];
+            if (hasWebGpu) {
+                actionGuide.push('Hinweis: WebGPU-Beschleunigung ist auf deinem Gerät betriebsbereit.');
+            }
         } else if (avail === 'after-download' || avail === 'downloadable') {
             diagnosisState = 'NEEDS_DOWNLOAD';
             actionGuide = [
@@ -275,7 +282,8 @@ const appMock = {
             hardware: {
                 ramGB: env.deviceMemory || null,
                 cores: env.hardwareConcurrency || null,
-                storageQuotaMB: env.storageQuotaMB || null
+                storageQuotaMB: env.storageQuotaMB || null,
+                hasWebGpu
             },
             api: { hasApi, activeInterface },
             model: { availability: avail, error: env.error || null },
@@ -767,6 +775,46 @@ test('23. Persona-Presets & Zwei-Wege-Synchronisation', () => {
     const modifiedPrompt = codePreset + ' Und antworte auf Spanisch.';
     assert.equal(appMock.syncPresetSelectFromText(modifiedPrompt), 'custom');
     assert.equal(appMock.syncPresetSelectFromText('Beliebiger eigener Prompt'), 'custom');
+});
+
+test('24. WebGPU Hardware-Erkennung & Fallback-Empfehlung in Systemdiagnose', () => {
+    // 24a. Nicht-Chromium (z. B. Firefox) mit verfügbarem WebGPU
+    const envFirefoxWebGpu = {
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0',
+        hasChromeGlobal: false,
+        hasWindowLanguageModel: false,
+        hasWebGpu: true,
+        availability: null
+    };
+    const diagFirefoxGpu = appMock.evaluateDiagnosis(envFirefoxWebGpu);
+    assert.equal(diagFirefoxGpu.diagnosisState, 'NON_CHROMIUM');
+    assert.equal(diagFirefoxGpu.hardware.hasWebGpu, true);
+    assert.ok(diagFirefoxGpu.actionGuide.some(step => step.includes('WebGPU Hardware-Beschleunigung ist auf deinem System verfügbar')));
+
+    // 24b. Nicht-Chromium ohne WebGPU
+    const envFirefoxNoGpu = {
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0',
+        hasChromeGlobal: false,
+        hasWindowLanguageModel: false,
+        hasWebGpu: false,
+        availability: null
+    };
+    const diagFirefoxNoGpu = appMock.evaluateDiagnosis(envFirefoxNoGpu);
+    assert.equal(diagFirefoxNoGpu.hardware.hasWebGpu, false);
+    assert.ok(diagFirefoxNoGpu.actionGuide.some(step => step.includes('nicht aktiv oder wird nicht unterstützt')));
+
+    // 24c. Chrome mit Prompt API (Nativ bleibt 100% vorrangig READY)
+    const envChromeReady = {
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        hasChromeGlobal: true,
+        hasWindowLanguageModel: true,
+        hasWebGpu: true,
+        availability: 'available'
+    };
+    const diagChrome = appMock.evaluateDiagnosis(envChromeReady);
+    assert.equal(diagChrome.diagnosisState, 'READY');
+    assert.equal(diagChrome.hardware.hasWebGpu, true);
+    assert.equal(diagChrome.actionGuide[0], 'Alle Systemvoraussetzungen sind erfüllt. Gemini Nano ist einsatzbereit.');
 });
 
 

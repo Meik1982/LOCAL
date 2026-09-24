@@ -728,6 +728,7 @@
                     : (env.hasWindowAiLanguageModel ? 'window.ai.languageModel (Early Draft)' : null);
 
                 const avail = env.availability || null;
+                const hasWebGpu = !!env.hasWebGpu;
                 let diagnosisState = 'UNKNOWN';
                 let actionGuide = [];
 
@@ -735,7 +736,10 @@
                     diagnosisState = 'NON_CHROMIUM';
                     actionGuide = [
                         `Du verwendest aktuell ${browserName}. Die lokale Gemini Nano Prompt API wird derzeit nativ nur in Chromium-basierten Browsern (vorrangig Google Chrome / Chrome Canary) unterstützt.`,
-                        'Bitte öffne die Anwendung in Google Chrome (ab Version 128+) oder Chrome Canary.'
+                        hasWebGpu 
+                            ? 'WebGPU Hardware-Beschleunigung ist auf deinem System verfügbar (bereit für In-Browser Wasm/WebGPU-Fallbacks).'
+                            : 'WebGPU Hardware-Beschleunigung ist in diesem Browser nicht aktiv oder wird nicht unterstützt.',
+                        'Für das beste Offline-Erlebnis mit Gemini Nano öffne die Anwendung in Google Chrome (ab Version 128+) oder Chrome Canary.'
                     ];
                 } else if (!hasApi) {
                     diagnosisState = 'NO_FLAGS';
@@ -745,6 +749,9 @@
                         '2. Öffne <code>chrome://flags/#optimization-guide-on-device-model</code> und setze auf <b>Enabled BypassPerfRequirement</b>.',
                         '3. Starte Chrome komplett neu über die Schaltfläche <b>Relaunch</b> ganz unten.'
                     ];
+                    if (hasWebGpu) {
+                        actionGuide.push('Hinweis: WebGPU-Beschleunigung ist auf deinem Gerät betriebsbereit.');
+                    }
                 } else if (avail === 'after-download' || avail === 'downloadable') {
                     diagnosisState = 'NEEDS_DOWNLOAD';
                     actionGuide = [
@@ -788,7 +795,8 @@
                     hardware: {
                         ramGB: env.deviceMemory || null,
                         cores: env.hardwareConcurrency || null,
-                        storageQuotaMB: env.storageQuotaMB || null
+                        storageQuotaMB: env.storageQuotaMB || null,
+                        hasWebGpu
                     },
                     api: { hasApi, activeInterface },
                     model: { availability: avail, error: env.error || null },
@@ -821,11 +829,14 @@
                     }
                 }
 
+                const hasWebGpu = typeof navigator !== 'undefined' && typeof navigator.gpu !== 'undefined' && !!navigator.gpu;
+
                 const env = {
                     userAgent: navigator.userAgent,
                     hasChromeGlobal: !!window.chrome,
                     hasWindowLanguageModel: typeof window.LanguageModel !== 'undefined',
                     hasWindowAiLanguageModel: !!(window.ai && window.ai.languageModel),
+                    hasWebGpu,
                     availability: avail,
                     error,
                     deviceMemory: navigator.deviceMemory,
@@ -900,6 +911,10 @@
                             <span class="diag-check-icon diag-check-pass">ℹ️</span>
                             <span>Erkannte Hardware: ca. ${diag.hardware.ramGB} GB RAM, ${diag.hardware.cores || '?'} CPU-Threads</span>
                         </div>` : ''}
+                        <div class="diag-check-item">
+                            <span class="diag-check-icon ${diag.hardware.hasWebGpu ? 'diag-check-pass' : 'diag-check-warn'}">${diag.hardware.hasWebGpu ? '✓' : 'ℹ️'}</span>
+                            <span>WebGPU Hardware-Beschleunigung: ${diag.hardware.hasWebGpu ? 'Verfügbar (GPU-Computing aktiv)' : 'Nicht verfügbar oder deaktiviert'}</span>
+                        </div>
                         <div class="diag-guide-box">
                             <b>Empfohlene Schritte zur Fehlerbehebung:</b>
                             <ol>${guideHtml}</ol>
