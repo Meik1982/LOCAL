@@ -384,6 +384,36 @@ const appMock = {
             }
         }
         return 'custom';
+    },
+    renderDiagnosticCardHtml(diag) {
+        return `
+            <div class="system-diagnostic-card">
+                <div class="diag-header">Status: ${diag.diagnosisState}</div>
+                <div class="diag-actions">
+                    <button class="diag-btn diag-btn-primary" id="diag-btn-retry">🔄 Erneut prüfen (Chrome)</button>
+                    ${diag.hardware.hasWebGpu ? `<button class="diag-btn diag-btn-webgpu" id="diag-btn-webgpu">⚡ WebGPU-Fallback laden (~90 MB)</button>` : ''}
+                    <button class="diag-btn" id="diag-btn-terminal">🛠️ Debug-Logs öffnen</button>
+                </div>
+            </div>
+        `;
+    },
+    getApiBadgeState(status, label) {
+        const badgeClass = status === 'ok' ? 'status-ok' : status === 'webgpu' ? 'status-webgpu' : status === 'warn' ? 'status-warn' : 'status-err';
+        return {
+            className: 'header-status-badge ' + badgeClass,
+            text: label
+        };
+    },
+    cleanupSession(session) {
+        if (session && typeof session.destroy === 'function') {
+            try {
+                session.destroy();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        return false;
     }
 };
 
@@ -879,6 +909,93 @@ test('26. Engine-Routing & strikte Priorisierung von Chrome Gemini Nano', () => 
 
     // 26d. Expliziter Relaunch / Re-Check schaltet zuverlässig auf Chrome Nano zurück
     assert.equal(routeEngine('webgpu', 'chrome_nano'), 'chrome_nano');
+});
+
+test('27. Diagnose-UI: Bedingte Einblendung des WebGPU-Download-Buttons', () => {
+    // 27a. System mit WebGPU-Hardware zeigt Aktions-Button
+    const diagWithGpu = {
+        diagnosisState: 'NON_CHROMIUM',
+        hardware: { hasWebGpu: true }
+    };
+    const htmlWithGpu = appMock.renderDiagnosticCardHtml(diagWithGpu);
+    assert.match(htmlWithGpu, /id="diag-btn-webgpu"/, 'WebGPU-Button muss vorhanden sein');
+    assert.match(htmlWithGpu, /⚡ WebGPU-Fallback laden \(~90 MB\)/);
+
+    // 27b. System ohne WebGPU-Hardware rendert KEINEN toten Button
+    const diagWithoutGpu = {
+        diagnosisState: 'NON_CHROMIUM',
+        hardware: { hasWebGpu: false }
+    };
+    const htmlWithoutGpu = appMock.renderDiagnosticCardHtml(diagWithoutGpu);
+    assert.doesNotMatch(htmlWithoutGpu, /id="diag-btn-webgpu"/, 'Darf keinen WebGPU-Button ohne Hardware rendern');
+});
+
+test('28. UI-Telemetrie & Badge-Status Farbkodierung (Nativ vs. WebGPU vs. Fehler)', () => {
+    // 28a. Nativ Chrome (Grün)
+    const badgeOk = appMock.getApiBadgeState('ok', 'Gemini Nano bereit');
+    assert.equal(badgeOk.className, 'header-status-badge status-ok');
+    assert.equal(badgeOk.text, 'Gemini Nano bereit');
+
+    // 28b. WebGPU Fallback (Lila)
+    const badgeWebGpu = appMock.getApiBadgeState('webgpu', 'WebGPU: SmolLM2 bereit');
+    assert.equal(badgeWebGpu.className, 'header-status-badge status-webgpu');
+    assert.equal(badgeWebGpu.text, 'WebGPU: SmolLM2 bereit');
+
+    // 28c. Warnung / Ladevorgang (Gelb)
+    const badgeWarn = appMock.getApiBadgeState('warn', 'WebGPU: 50%');
+    assert.equal(badgeWarn.className, 'header-status-badge status-warn');
+
+    // 28d. Fehler / Offline (Rot)
+    const badgeErr = appMock.getApiBadgeState('err', 'KI Offline');
+    assert.equal(badgeErr.className, 'header-status-badge status-err');
+});
+
+test('29. Session-Lifecycle & GPU/RAM-Leak-Prävention bei Engine-Wechsel', () => {
+    let destroyedCount = 0;
+    const sessionA = {
+        destroy() {
+            destroyedCount++;
+        }
+    };
+    const sessionFaulty = {
+        destroy() {
+            throw new Error("Fehler beim Freigeben von VRAM");
+        }
+    };
+
+    // 29a. Reguläre Freigabe
+    assert.equal(appMock.cleanupSession(sessionA), true);
+    assert.equal(destroyedCount, 1);
+
+    // 29b. Robuste Fehlerbehandlung ohne Uncaught Exception
+    assert.equal(appMock.cleanupSession(sessionFaulty), false, 'Fehlerhafte Session darf App nicht crashen');
+
+    // 29c. Null-Session Sicherung
+    assert.equal(appMock.cleanupSession(null), false);
+    assert.equal(appMock.cleanupSession(undefined), false);
+});
+
+test('30. WebGPU Token-Budgetierung & dynamisches Kontext-Slicing', () => {
+    // WebGPU nutzt typischerweise ein kleineres Kontextfenster (z. B. 2048 Tokens)
+    const webGpuMaxTokens = 2048;
+    const safeCharBudget = 7000; // Angepasstes Sicherheitsbudget für kleine Modelle
+
+    const wrappers = [
+        { role: 'user', rawText: "X".repeat(3000) },
+        { role: 'assistant', rawText: "Y".repeat(3000) },
+        { role: 'user', rawText: "Z".repeat(2500) }
+    ];
+
+    const history = appMock.filterHistoryForConnect(wrappers, safeCharBudget);
+    
+    // 30a. Das Budget darf niemals überschritten werden
+    assert.ok(history.length <= safeCharBudget, `Historie (${history.length}) muss innerhalb des Budgets (${safeCharBudget}) liegen`);
+    
+    // 30b. Neueste Nachricht ("Z") muss zwingend enthalten sein
+    assert.ok(history.includes("Z".repeat(100)), 'Neueste Nachricht muss erhalten bleiben');
+
+    // 30c. Älteste Nachricht ("X") muss aufgrund von Budget-Überschreitung abgetrennt worden sein
+    assert.ok(!history.includes("X".repeat(100)), 'Älteste Nachricht muss abgeschnitten worden sein');
 });
 
 

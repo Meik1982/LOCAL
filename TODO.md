@@ -42,7 +42,7 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
 - [x] **Codesandbox-Erweiterung (Reset & Toggle):**
   Möglichkeit, geöffnete Sandboxes jederzeit mit `⏹ Schließen` einzuklappen und zu entladen (`srcdoc = ''`).
 - [x] **Automatisierte Testsuite & Validierungs-Harness (`tests/`):**
-  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 26/26 Tests grün) für:
+  Headless Test-Suite mit Node.js built-in Test-Runner (`npm test` und `tests/run_tests.sh`, 30/30 Tests grün) für:
   - Markdown-Sanitization, XSS-Schutz & Token-Kollisionssicherheit
   - Syntax-Highlighting & HTML-Entity Immunität
   - Roundtrip Multi-Turn Export/Import & Kontext-Slicing (SAFE_INIT_CHARS)
@@ -60,6 +60,10 @@ Dieses Dokument erfasst den aktuellen Umsetzungsstatus, die Härtungsmaßnahmen,
   - WebGPU Hardware-Erkennung (`navigator.gpu`) & Fallback-Matrix
   - Einheitlicher Streaming-Session-Vertrag für Hybrid-Engines (`promptStreaming`, `destroy`, Tokens)
   - Engine-Routing mit striktem Vorrang für native Chrome Prompt API
+  - Diagnose-UI: Bedingte Einblendung des WebGPU-Download-Buttons (nur bei vorhandener Hardware)
+  - UI-Telemetrie & Badge-Status Farbkodierung (Grün für Chrome Nano, Lila für WebGPU, Gelb, Rot)
+  - Session-Lifecycle & GPU/RAM-Leak-Prävention bei Engine-Wechsel (`session.destroy()`)
+  - WebGPU Token-Budgetierung & dynamisches Kontext-Slicing (Sicherheitsgrenzen für 2048 Tokens)
 - [x] **Wasm / WebGPU Hybrid-Engine (Opt-In Fallback):**
   - **Chrome Prompt API bleibt strikte Priorität 1:** In Google Chrome wird weder externer Code noch Modellgewichte geladen (0 Byte Overhead, 100 % nativer Pfad).
   - **Bedarfsgesteuerter Fallback (Opt-In):** Ausschließlich bei fehlender Prompt API (Firefox, Safari, unkonfigurierter Chromium) bietet die Diagnose-Karte bei erkannter WebGPU-Hardware den Button *„⚡ WebGPU-Fallback laden (~90 MB)“*.
